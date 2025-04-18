@@ -8,9 +8,6 @@ Latest version: **0.1.1** / Release notes: [Link](https://github.com/xmas-ar/vMa
  - Basic interface management.
  - Loopback testing and automatic timeout.
  - In-band management through QinQ.
-
-**Feature list:**
- - 
 ___
 
 <h1 align="center"># Introduction</h1>
@@ -28,3 +25,5 @@ vMark-node is a software-based Ethernet demarcation NID designed for flexibility
 <p align="center">
   <img src="docs/source/xxx" alt="vMark-node Overview">
 </p>
+
+<h1 align="center"># Feature List</h1>
