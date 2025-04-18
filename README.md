@@ -13,7 +13,8 @@ ___
 <h1 align="center"># Introduction</h1>
 
 <p align="center">
-  vMark-node is a software-based Ethernet demarcation NID designed for flexibility and democratization of Ethernet services delivery and testing, the "-node" refers to this repo being the client-side of <a href="https://github.com/xmas-ar/vMark">vMark</a> system.
+vMark-node is a software-based open-source Ethernet demarcation NID designed for flexibility and democratization in the Carrier industry.
+The "-node" refers to this repo being the client-side of <a href="https://github.com/xmas-ar/vMark">vMark</a> system.
 </p>
 
 
