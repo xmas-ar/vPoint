@@ -8,7 +8,6 @@ Latest version: **0.1.1** / Release notes: [Link](https://github.com/xmas-ar/vMa
 - Shell/Dispatcher/Modules architecture.
 
 **Feature roadmap:**
- - Feature-list.
  - Basic interface management.
  - Loopback testing with automatic timeout.
  - In-band management through QinQ (dualtags).
