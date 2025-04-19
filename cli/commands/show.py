@@ -1,9 +1,18 @@
 import subprocess
+from cli.commands import config, system  # Import config and system modules
 
 descriptions = {
     "tree": {
-        "": "Show command tree",
-        "details": "Show command tree with descriptions",
+        "": "Display entire command tree",
+        "show": "Display only the 'show' tree",
+        "config": "Display only the 'config' tree",
+        "system": "Display only the 'system' tree",
+        "details": {
+            "": "Display entire command tree with descriptions",
+            "show": "Display only the 'show' tree with descriptions",
+            "config": "Display only the 'config' tree with descriptions",
+            "system": "Display only the 'system' tree with descriptions",
+        },
     },
     "interfaces": {
         "": "Show interface-related information",
@@ -42,12 +51,28 @@ def handle(args, username, hostname):
     if not args:
         return f"{prompt}Incomplete command. Type 'help' or '?' for more information."
     if args[0] == 'tree':
-        if len(args) > 1 and args[1] == 'details':
-            tree_lines = print_tree(descriptions, with_descriptions=True)
-            return "\n" + "\n".join(tree_lines) + "\n"
+        # Print all command trees or a specific one
+        output = []
+        with_descriptions = len(args) > 1 and args[1] == 'details'
+        # Check if a specific tree is requested
+        if (with_descriptions and len(args) > 2) or (not with_descriptions and len(args) > 1):
+            tree_arg = args[2] if with_descriptions else args[1]
+            if tree_arg == 'show':
+                output.extend(print_tree(descriptions, with_descriptions=with_descriptions))
+            elif tree_arg == 'config':
+                output.extend(print_tree(config.descriptions, with_descriptions=with_descriptions))
+            elif tree_arg == 'system':
+                output.extend(print_tree(system.descriptions, with_descriptions=with_descriptions))
+            else:
+                return f"{prompt}Unknown tree '{tree_arg}'. Choose from: show, config, system."
         else:
-            tree_lines = print_tree(descriptions, with_descriptions=False)
-            return "\n" + "\n".join(tree_lines) + "\n"
+            output.append("show:")
+            output.extend(print_tree(descriptions, with_descriptions=with_descriptions))
+            output.append("\nconfig:")
+            output.extend(print_tree(config.descriptions, with_descriptions=with_descriptions))
+            output.append("\nsystem:")
+            output.extend(print_tree(system.descriptions, with_descriptions=with_descriptions))
+        return "\n" + "\n".join(output) + "\n"
     if args[0] == 'interfaces':
         if len(args) == 1:
             # Handle `show interfaces`
