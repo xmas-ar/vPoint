@@ -25,11 +25,18 @@ group_descriptions = {
 
 # Dynamically build the command tree
 def build_command_tree():
+    def build_subtree(subcommands):
+        tree = {}
+        for key, value in subcommands.items():
+            if isinstance(value, dict):  # If the value is a dict, recurse
+                tree[key] = build_subtree(value)
+            else:
+                tree[key] = {}  # Leaf node
+        return tree
+
     tree = {}
     for group, subcommands in group_descriptions.items():
-        tree[group] = {}
-        for subcommand in subcommands.keys():
-            tree[group][subcommand] = {}
+        tree[group] = build_subtree(subcommands)
     return tree
 
 command_tree = build_command_tree()
@@ -84,12 +91,14 @@ def start_cli():
                 else:
                     subtree = None
                     break
-            if subtree:
+            if subtree is not None:
                 # Display possible completions with descriptions
                 output.append(("class:completion-header", f"\nPossible completions: {text} ?\n"))
                 for key in subtree.keys():
                     full_command = f"{text} {key}".strip()
                     description = group_descriptions.get(parts[0], {}).get(key, "No description available")
+                    if isinstance(description, dict):  # Handle nested descriptions
+                        description = description.get("", "No description available")
                     output.append(("", f"  {key:<20} {description}\n"))
             else:
                 output.append(("", f"\nNo further options available for: {text} ?\n"))
@@ -111,8 +120,6 @@ def start_cli():
     )
 
     help_message = """
--- vMark-node Help:
-
 Additional features:
   - Autocomplete commands with Tab, see possibilities with ?.
   - Type 'clear' to clear the screen.
