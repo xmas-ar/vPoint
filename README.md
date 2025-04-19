@@ -24,8 +24,14 @@ The "-node" refers to this repo being the client-side of <a href="https://github
 
 <h1 align="center"># Architecture</h1>
 
-<p align="center">
-  <img src="docs/source/xxx" alt="vMark-node Overview">
-</p>
 
-<h1 align="center"># Feature List</h1>
+___
+
+## Quick Install
+
+```
+gh clone https://github.com/xmas-ar/vMark-node.git
+cd vMark-node
+pip3 install -r requirements.txt
+python3 main.py
+---
