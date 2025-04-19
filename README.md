@@ -30,6 +30,18 @@ The "-node" refers to this repo being the client-side of <a href="https://github
 
 <h1 align="center"># Architecture</h1>
 
+**Shell**:
+Provides command-line auto-completion and dynamically builds the command tree based on module and command descriptions. This enables an intuitive and interactive CLI experience.
+
+**Dispatcher**:
+Interprets user commands, determines the appropriate module to handle each command, and routes execution accordingly. The dispatcher acts as the central coordinator between the shell and the available modules/plugins.
+
+**Modules**:
+Encapsulate core command logic and define the command tree structure. Examples include modules like show, config, and system, each representing a set of related commands and subcommands.
+
+**Plugins**:
+Integrate external libraries or tools to extend functionality. For example, plugins can provide access to third-party systems such as OpenBFDD, allowing seamless integration with external services.
+
 
 ___
 
