@@ -7,11 +7,14 @@ Latest version: **0.1.1** / Release notes: [Link](https://github.com/xmas-ar/vMa
 - Modern tree-style CLI with autocompletions.
 - Shell/Dispatcher/Modules architecture.
 
-**vMark-node roadmap 2025:**
+**vMark-node roadmap:**
  - Feature-list.
  - Basic interface management.
- - Loopback testing and automatic timeout.
- - In-band management through QinQ.
+ - Loopback testing with automatic timeout.
+ - In-band management through QinQ (dualtags).
+ - RFC2544 reflector.
+ - TWAMP implementation for ad-hoc testing.
+ - open-BFDD implementation for service assurance (p2p session).
 ___
 
 <h1 align="center"># Introduction</h1>
