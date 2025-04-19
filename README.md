@@ -8,7 +8,9 @@ Latest version: **0.1.1** / Release notes: [Link](https://github.com/xmas-ar/vMa
 - Shell/Dispatcher/Modules architecture.
 
 **Feature roadmap:**
- - Basic interface management.
+ - Complete Interface management.
+ - web GUI (flask).
+ - Docker & pip installations.
  - Loopback testing with automatic timeout.
  - In-band management through QinQ (dualtags).
  - RFC2544 reflector.
