@@ -134,8 +134,10 @@ def start_cli():
     )
 
     help_message = """
-Additional features:
-  - Autocomplete commands with Tab, see possibilities with ?.
+
+-- vMark-node CLI Help --
+
+  - Tab for autocomplete, see possible options with ? or 'show tree'.
   - Type 'clear' to clear the screen.
   - Type 'history count <number>' to view the last commands.
   - Type 'version' to check the vMark-node version.
@@ -144,9 +146,10 @@ Additional features:
   - Type 'status' to check the general status of the system.
 
 Type 'exit' or 'quit' to exit.
+
 """
 
-    print("vMark-node Initialized. Type 'help' or '?' for more information.")
+    print("\n" + "vMark-node Initialized. Type 'help' or '?' for more information." + "\n")
 
     # Get the current username and hostname
     username = getpass.getuser()
