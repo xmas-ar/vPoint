@@ -3,6 +3,10 @@
 
 Latest version: **0.1.1** / Release notes: [Link](https://github.com/xmas-ar/vMark-node/blob/public/docs/base/release_notes.md) 
 
+**Features:**
+- Modern tree-style CLI with autocompletions.
+- Shell/Dispatcher/Modules architecture.
+
 **vMark-node roadmap 2025:**
  - Feature-list.
  - Basic interface management.
@@ -34,4 +38,3 @@ gh clone https://github.com/xmas-ar/vMark-node.git
 cd vMark-node
 pip3 install -r requirements.txt
 python3 main.py
----
