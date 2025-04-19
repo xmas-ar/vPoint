@@ -16,30 +16,34 @@ command_descriptions = {
     "system": "Perform system operations",
 }
 
-# Fetch subcommand descriptions from individual modules
+# Centralized descriptions
 group_descriptions = {
     "show": show.descriptions,
     "config": config.descriptions,
     "system": system.descriptions,
 }
 
-# Dynamically build the command tree
-def build_command_tree():
-    def build_subtree(subcommands):
+# Dynamically build the command tree and descriptions
+def build_command_tree_and_descs():
+    def build_subtree(subcommands, descs, path=()):
         tree = {}
+        desc_lookup = {}
         for key, value in subcommands.items():
-            if isinstance(value, dict):  # If the value is a dict, recurse
-                tree[key] = build_subtree(value)
+            if isinstance(value, dict):
+                tree[key], desc_lookup[key] = build_subtree(value, value)
+                desc_lookup[key][""] = value.get("", "")
             else:
-                tree[key] = {}  # Leaf node
-        return tree
+                tree[key] = {}
+                desc_lookup[key] = {"": value}
+        return tree, desc_lookup
 
     tree = {}
+    desc_lookup = {}
     for group, subcommands in group_descriptions.items():
-        tree[group] = build_subtree(subcommands)
-    return tree
+        tree[group], desc_lookup[group] = build_subtree(subcommands, subcommands)
+    return tree, desc_lookup
 
-command_tree = build_command_tree()
+command_tree, description_tree = build_command_tree_and_descs()
 
 # Additional feature: Clear the screen
 def af_clear_screen():
@@ -81,37 +85,47 @@ def start_cli():
         text = buffer.text.strip()
         output = []
 
-        if text:
-            # Traverse the command tree to find the current level
+        if not text:
+            # Top-level commands
+            output.append(("class:completion-header", "\nPossible completions:\n"))
+            for key in command_tree.keys():
+                desc = description_tree[key].get("", "") if isinstance(description_tree[key], dict) else description_tree[key]
+                output.append(("", f"  {key:<20} {desc}\n"))
+        else:
             parts = text.split()
             subtree = command_tree
-            for part in parts:
-                if part in subtree:
-                    subtree = subtree[part]
-                else:
-                    subtree = None
-                    break
-            if subtree is not None:
-                # Display possible completions with descriptions
-                output.append(("class:completion-header", f"\nPossible completions: {text} ?\n"))
+            descsubtree = description_tree
+
+            # If only one word and it's a top-level command, treat as 'show ?'
+            if len(parts) == 1 and parts[0] in command_tree:
+                subtree = command_tree[parts[0]]
+                descsubtree = description_tree[parts[0]]
+                output.append(("class:completion-header", f"\nPossible completions: {parts[0]} ?\n"))
                 for key in subtree.keys():
-                    full_command = f"{text} {key}".strip()
-                    description = group_descriptions.get(parts[0], {}).get(key, "No description available")
-                    if isinstance(description, dict):  # Handle nested descriptions
-                        description = description.get("", "No description available")
-                    output.append(("", f"  {key:<20} {description}\n"))
+                    desc_entry = descsubtree[key]
+                    desc = desc_entry.get("", "") if isinstance(desc_entry, dict) else desc_entry
+                    output.append(("", f"  {key:<20} {desc}\n"))
             else:
-                output.append(("", f"\nNo further options available for: {text} ?\n"))
-        else:
-            # Top-level options
-            output.append(("class:completion-header", "\nPossible completions:\n"))
-            for key, description in command_descriptions.items():
-                output.append(("", f"  {key:<20} {description}\n"))
+                for part in parts:
+                    if part in subtree:
+                        subtree = subtree[part]
+                        descsubtree = descsubtree[part]
+                    else:
+                        subtree = None
+                        descsubtree = None
+                        break
 
-        # Use print_formatted_text to display the output
+                # Only show completions if at the end of a valid command path
+                if subtree is not None and (not parts or buffer.text.endswith(' ')):
+                    output.append(("class:completion-header", f"\nPossible completions: {text} ?\n"))
+                    for key in subtree.keys():
+                        desc_entry = descsubtree[key]
+                        desc = desc_entry.get("", "") if isinstance(desc_entry, dict) else desc_entry
+                        output.append(("", f"  {key:<20} {desc}\n"))
+                else:
+                    output.append(("", f"\nNo further options available for: {text} ?\n"))
+
         print_formatted_text(FormattedText(output), end="")
-
-        # Refresh the prompt after displaying completions
         event.app.invalidate()
 
     session = PromptSession(

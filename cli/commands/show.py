@@ -15,7 +15,7 @@ descriptions = {
 def handle(args, username, hostname):
     prompt = f"{username}/{hostname}@vMark-node> "
     if not args:
-        return f"{prompt}Incomplete command. Type 'help' for more information."
+        return f"{prompt}Incomplete command. Type 'help' or '?' for more information."
     
     if args[0] == 'interfaces':
         if len(args) == 1:
@@ -67,7 +67,7 @@ def handle(args, username, hostname):
                         ipv4_only = "\n".join([part for part in parts[2:] if "." in part])
                         if ipv4_only:
                             ipv4_lines.append(f"{parts[0]:<15} {parts[1]:<10} {ipv4_only}")
-                return "\n".join(ipv4_lines)
+                return "\n" + "\n".join(ipv4_lines)+ "\n"
             except subprocess.CalledProcessError as e:
                 return f"{prompt}Error executing command: {e}"
         else:

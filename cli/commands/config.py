@@ -10,5 +10,5 @@ descriptions = {
     "new-obfd": "Add a new open-BFD configuration",
 }
 
-def handle(args):
+def handle(args, username, hostname):
     return f"Configurando: {' '.join(args)}"

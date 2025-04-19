@@ -7,5 +7,5 @@ descriptions = {
     },
 }
 
-def handle(args):
+def handle(args, username, hostname):
     return f"System command executed: {' '.join(args)}"
