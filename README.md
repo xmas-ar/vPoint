@@ -7,7 +7,7 @@ Latest version: **0.1.1** / Release notes: [Link](https://github.com/xmas-ar/vMa
 - Modern tree-style CLI with autocompletions.
 - Shell/Dispatcher/Modules architecture.
 
-**vMark-node roadmap:**
+**Feature roadmap:**
  - Feature-list.
  - Basic interface management.
  - Loopback testing with automatic timeout.
