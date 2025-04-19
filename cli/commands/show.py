@@ -3,6 +3,7 @@ import subprocess
 descriptions = {
     "tree": {
         "": "Show command tree",
+        "details": "Show command tree with descriptions",
     },
     "interfaces": {
         "": "Show interface-related information",
@@ -17,13 +18,36 @@ descriptions = {
     },
 }
 
+def print_tree(d, prefix="", with_descriptions=False):
+    lines = []
+    for key, value in d.items():
+        if key == "" or key == "tree":
+            continue  # Skip empty string keys and the 'tree' command itself
+        if isinstance(value, dict):
+            desc = value.get("", "")
+            if with_descriptions:
+                lines.append(f"{prefix}{key} - {desc}")
+            else:
+                lines.append(f"{prefix}{key}")
+            lines.extend(print_tree(value, prefix + "  ", with_descriptions))
+        else:
+            if with_descriptions:
+                lines.append(f"{prefix}{key} - {value}")
+            else:
+                lines.append(f"{prefix}{key}")
+    return lines
+
 def handle(args, username, hostname):
     prompt = f"{username}/{hostname}@vMark-node> "
     if not args:
         return f"{prompt}Incomplete command. Type 'help' or '?' for more information."
     if args[0] == 'tree':
-        tree_lines = print_tree(descriptions)
-        return "\n" + "\n".join(tree_lines) + "\n"
+        if len(args) > 1 and args[1] == 'details':
+            tree_lines = print_tree(descriptions, with_descriptions=True)
+            return "\n" + "\n".join(tree_lines) + "\n"
+        else:
+            tree_lines = print_tree(descriptions, with_descriptions=False)
+            return "\n" + "\n".join(tree_lines) + "\n"
     if args[0] == 'interfaces':
         if len(args) == 1:
             # Handle `show interfaces`
@@ -95,16 +119,3 @@ def handle(args, username, hostname):
     
     else:
         return f"{prompt}Unknown command {args[0]}"
-
-def print_tree(d, prefix=""):
-    lines = []
-    for key, value in d.items():
-        if key == "" or key == "tree":
-            continue  # Skip empty string keys and the 'tree' command itself
-        if isinstance(value, dict):
-            desc = value.get("", "")
-            lines.append(f"{prefix}{key} - {desc}")
-            lines.extend(print_tree(value, prefix + "  "))
-        else:
-            lines.append(f"{prefix}{key} - {value}")
-    return lines
