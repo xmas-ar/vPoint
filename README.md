@@ -28,8 +28,9 @@ The "-node" refers to this repo being the client-side of <a href="https://github
 
 
 <p align="center">
-  <img src="https://github.com/user-attachments/assets/e08cc38e-dac9-4554-846d-2ac7effc18a2" alt="xxx">
+  <img src="https://github.com/user-attachments/assets/ed3e07e1-9320-4fbb-a715-5a4fbe24c977" alt="xxx">
 </p>
+
 
 <h1 align="center"># Architecture</h1>
 
