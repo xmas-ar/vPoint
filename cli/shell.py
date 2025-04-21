@@ -8,6 +8,8 @@ from prompt_toolkit.formatted_text import FormattedText
 from prompt_toolkit.shortcuts import print_formatted_text
 from cli.dispatcher import dispatch
 from cli.commands import show, config, system  # Import command modules
+from pyroute2 import IPDB
+from cli.commands.config import handle
 
 # Combine descriptions from all command modules
 command_descriptions = {
@@ -25,23 +27,65 @@ group_descriptions = {
 
 # Dynamically build the command tree and descriptions
 def build_command_tree_and_descs():
-    def build_subtree(subcommands, descs, path=()):
-        tree = {}
-        desc_lookup = {}
-        for key, value in subcommands.items():
-            if isinstance(value, dict):
-                tree[key], desc_lookup[key] = build_subtree(value, value)
-                desc_lookup[key][""] = value.get("", "")
-            else:
-                tree[key] = {}
-                desc_lookup[key] = {"": value}
-        return tree, desc_lookup
+    # Dynamically fetch interface names
+    with IPDB() as ipdb:
+        interface_names = [
+            str(name) for name in ipdb.interfaces.keys()
+            if isinstance(name, str) and not name.isdigit()  # Exclude numeric keys
+        ]
 
-    tree = {}
-    desc_lookup = {}
-    for group, subcommands in group_descriptions.items():
-        tree[group], desc_lookup[group] = build_subtree(subcommands, subcommands)
-    return tree, desc_lookup
+    # Helper function to recursively build the command tree
+    def build_tree_from_descriptions(desc_tree):
+        tree = {}
+        for key, value in desc_tree.items():
+            if key == "_options":
+                # Add options as leaf nodes for autocompletion
+                for option in value:
+                    tree[option] = None
+            elif isinstance(value, dict):
+                # Recursively build subtrees
+                tree[key] = build_tree_from_descriptions(value)
+            else:
+                # Leaf nodes (commands without subcommands)
+                tree[key] = None
+        return tree
+
+    # Generate the command tree from the description tree
+    description_tree = {
+        "config": config.descriptions,
+        "show": show.descriptions,
+        "system": system.descriptions,
+    }
+    command_tree = build_tree_from_descriptions(description_tree)
+
+    # Add dynamic interface names to the "config interface" subtree
+    if "config" in command_tree and "interface" in command_tree["config"]:
+        command_tree["config"]["interface"] = {
+            name: {
+                "mtu": None,
+                "speed": None,
+                "status": None,
+                "auto-nego": None,
+                "duplex": None,
+            }
+            for name in interface_names
+        }
+
+    # Add dynamic interface names to the "show interfaces" subtree
+    if "show" in command_tree and "interfaces" in command_tree["show"]:
+        command_tree["show"]["interfaces"] = {
+            name: {} for name in interface_names
+        }
+        # Add static subcommands for "show interfaces"
+        command_tree["show"]["interfaces"].update({
+            "ip": {
+                "": None,
+                "config": None,
+            },
+            "ipv4": None,
+        })
+
+    return command_tree, description_tree
 
 command_tree, description_tree = build_command_tree_and_descs()
 
@@ -63,7 +107,7 @@ def af_view_history(history, count=None):
 
 # Additional feature: Check the version
 def af_check_version():
-    VERSION = "0.1.1"  # Project version
+    VERSION = "0.1.5"  # Project version
     print(f"vMark-node version: {VERSION}")
 
 # Additional feature: Display hardware and OS information
@@ -76,6 +120,27 @@ def af_info():
     print("\n")
 
 def start_cli():
+    command_tree, description_tree = build_command_tree_and_descs()
+
+    # Create the PromptSession first
+    session = PromptSession()
+
+    def rebuild_completer():
+        # Rebuild the NestedCompleter with the updated command_tree
+        session.completer = NestedCompleter.from_nested_dict(command_tree)
+
+    # Call rebuild_completer after building the command tree
+    rebuild_completer()
+
+    # Replace placeholders with dynamic handlers
+    def update_new_interface_tree(interface_name):
+        command_tree["config"]["new-interface"][interface_name] = {
+            "type": {"vlan": {}, "vlan-in-vlan": {}},
+            "cvlan-id": {},
+            "svlan-id": {},
+        }
+        rebuild_completer()
+
     # Create a key binding for '?' to display possible completions
     bindings = KeyBindings()
 
@@ -96,38 +161,34 @@ def start_cli():
             subtree = command_tree
             descsubtree = description_tree
 
-            # If only one word and it's a top-level command, treat as 'show ?'
-            if len(parts) == 1 and parts[0] in command_tree:
-                subtree = command_tree[parts[0]]
-                descsubtree = description_tree[parts[0]]
-                output.append(("class:completion-header", f"\nPossible completions: {parts[0]} ?\n"))
-                for key in subtree.keys():
-                    desc_entry = descsubtree[key]
-                    desc = desc_entry.get("", "") if isinstance(desc_entry, dict) else desc_entry
-                    output.append(("", f"  {key:<20} {desc}\n"))
-            else:
-                for part in parts:
-                    if part in subtree:
-                        subtree = subtree[part]
-                        descsubtree = descsubtree[part]
+            for part in parts:
+                if part in subtree:
+                    subtree = subtree[part]
+                    descsubtree = descsubtree.get(part, {})  # Safely get the next level
+                else:
+                    # Handle dynamic new-interface name
+                    if len(parts) > 2 and parts[0] == "config" and parts[1] == "new-interface":
+                        update_new_interface_tree(parts[2])
+                        subtree = command_tree["config"]["new-interface"][parts[2]]
+                        descsubtree = description_tree["config"]["new-interface"]
                     else:
                         subtree = None
                         descsubtree = None
                         break
 
-                # Only show completions if at the end of a valid command path
-                if subtree is not None and (not parts or buffer.text.endswith(' ')):
-                    output.append(("class:completion-header", f"\nPossible completions: {text} ?\n"))
-                    for key in subtree.keys():
-                        desc_entry = descsubtree[key]
-                        desc = desc_entry.get("", "") if isinstance(desc_entry, dict) else desc_entry
-                        output.append(("", f"  {key:<20} {desc}\n"))
-                else:
-                    output.append(("", f"\nNo further options available for: {text} ?\n"))
+            if subtree is not None and (not parts or buffer.text.endswith(' ')):
+                output.append(("class:completion-header", f"\nPossible completions: {text} ?\n"))
+                for key in subtree.keys():
+                    desc_entry = descsubtree.get(key, {})  # Safely get the description
+                    desc = desc_entry.get("", "") if isinstance(desc_entry, dict) else desc_entry
+                    output.append(("", f"  {key:<20} {desc}\n"))
+            else:
+                output.append(("", f"\nNo further options available for: {text} ?\n"))
 
         print_formatted_text(FormattedText(output), end="")
         event.app.invalidate()
 
+    # Initialize the PromptSession with the initial completer
     session = PromptSession(
         completer=NestedCompleter.from_nested_dict(command_tree),
         key_bindings=bindings
@@ -137,7 +198,7 @@ def start_cli():
 
 -- vMark-node CLI Help --
 
-  - Tab for autocomplete, see possible options with ? or 'show tree'.
+  - Tab for autocomplete, see completions with ? or 'show tree/show tree details/show tree show'.
   - Type 'clear' to clear the screen.
   - Type 'history count <number>' to view the last commands.
   - Type 'version' to check the vMark-node version.
@@ -197,3 +258,7 @@ Type 'exit' or 'quit' to exit.
             continue
         except EOFError:
             break
+
+def handle_config_interface_action(action, args, ifname, prompt):
+    # Delegate the logic to config.py
+    return handle(args, getpass.getuser(), os.uname().nodename)

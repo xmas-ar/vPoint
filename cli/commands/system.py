@@ -3,7 +3,7 @@ import subprocess
 descriptions = {
     "run": {
         "": "Run system-level operations",
-        "diagnostics": "Run system diagnostics",
+        #"diagnostics": "Run system diagnostics",
     },
 }
 

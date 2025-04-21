@@ -1,6 +1,21 @@
 
 # Release Notes
 
+Version 0.1.5: show/config commands.
+-------------------------
+- Added 'config interface' commands:
+	- config interface ifname mtu
+	- config interface ifname speed
+	- config interface ifname status
+	- config interface ifname auto-nego
+	- config interface ifname duplex
+	
+- Added 'show interface' commands:
+	- show interfaces
+	- show interfaces ifname
+	- show interfaces ip
+	- show interfaces ipv4
+
 Version 0.1.1: Project Creation
 -------------------------
 - Repository created.
