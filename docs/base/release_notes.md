@@ -7,6 +7,7 @@ Version 0.2.0: new-interface & delete interface + tree improvements.
 - Improvement to the whole 'show tree' function for more clarity.
 - Added following commands for creating and deleting interfaces:
 
+```
 config
 │   ├── delete-interface
 
@@ -19,6 +20,7 @@ new-interface
         ├── parent-interface
         ├── status
         └── svlan-id
+```
 
 Version 0.1.6: bug fixes.
 -------------------------
