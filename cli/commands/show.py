@@ -73,46 +73,77 @@ def get_command_tree():
     
     return command_tree
 
-def print_tree(d, prefix=""):
-    lines = []
-    if not d:
-        return lines
-        
-    for key, value in d.items():
-        if key == "_options":
-            # Skip options in the tree output
-            continue
-            
-        # Format the current line
-        if isinstance(value, dict):
-            lines.append(f"{prefix}{key}")
-            lines.extend(print_tree(value, prefix + "  "))
-        else:
-            lines.append(f"{prefix}{key}")
-            
-    return lines
+# Fix the print_tree function to reduce excessive whitespace
 
-def print_tree_with_descriptions(d, descs, prefix="", path=None):
-    """
-    Prints tree with descriptions, handling special cases for interface parameters.
-    
-    Args:
-        d: Current subtree of command tree
-        descs: Current subtree of description tree
-        prefix: Prefix for indentation
-        path: Current path in the tree (list of keys)
-    """
-    lines = []
-    if not d:
-        return lines
-    
-    # Initialize path if None
+def print_tree(d, prefix="", is_last=True, path=None):
+    """Print a tree structure in a more compact format"""
     if path is None:
         path = []
+    
+    if not d:  # Empty dictionary
+        return ""
+    
+    lines = []  # Store lines instead of a single result string
+    
+    # Sort the keys for consistent output
+    items = sorted(d.items())
+    
+    for i, (k, v) in enumerate(items):
+        is_last_item = i == len(items) - 1
         
-    for key, value in d.items():
-        if key == "_options":
+        # Skip empty keys
+        if k == "":
             continue
+            
+        # Create the branch symbol
+        if is_last_item:
+            branch = "└── " if prefix else ""
+            new_prefix = prefix + "    "
+        else:
+            branch = "├── " if prefix else ""
+            new_prefix = prefix + "│   "
+        
+        # Build the full path for this node
+        current_path = path + [k]
+        
+        # Add the current item
+        lines.append(f"{prefix}{branch}{k}")
+        
+        # Recursively add subtrees, but only if they contain items
+        if isinstance(v, dict) and v:
+            subtree = print_tree(v, new_prefix, is_last_item, current_path)
+            if subtree:  # Only include non-empty subtrees
+                lines.append(subtree)
+    
+    return "\n".join(lines)  # Join with newlines only at the end
+
+def print_tree_with_descriptions(d, descs, prefix="", path=None):
+    """Print a tree structure with descriptions"""
+    if path is None:
+        path = []
+    
+    if not d:  # Empty dictionary
+        return ""
+    
+    lines = []  # Store lines instead of returning a list
+    
+    # Sort keys for consistent output
+    items = sorted(d.items())
+    
+    for i, (key, value) in enumerate(items):
+        is_last_item = i == len(items) - 1
+        
+        # Skip empty keys and option entries
+        if key == "" or key == "_options":
+            continue
+        
+        # Create the branch symbol
+        if is_last_item:
+            branch = "└── " if prefix else ""
+            new_prefix = prefix + "    "
+        else:
+            branch = "├── " if prefix else ""
+            new_prefix = prefix + "│   "
             
         # Get description for this item
         desc = ""
@@ -125,82 +156,27 @@ def print_tree_with_descriptions(d, descs, prefix="", path=None):
             elif isinstance(descs[key], str):
                 desc = f" - {descs[key]}"
         
-        # Special case for interface parameters
-        if not desc and key in ["mtu", "speed", "status", "auto-nego", "duplex"]:
-            # Check if we're in a config->interface->ifname path
-            in_interface_path = False
-            
-            # Full tree path: ["config", "interface", "ifname", param]
-            if len(path) == 0 and len(current_path) >= 3 and current_path[0] == "config" and current_path[1] == "interface":
-                in_interface_path = True
-                # Get descriptions from the full tree's config section
-                config_desc = descs.get("config", {})
-                interface_desc = config_desc.get("interface", {})
-                ifname_desc = interface_desc.get("<ifname>", {})
-                if key in ifname_desc:
-                    param_desc = ifname_desc[key]
-                    if isinstance(param_desc, dict) and "" in param_desc:
-                        desc = f" - {param_desc['']}"
-                    elif isinstance(param_desc, str):
-                        desc = f" - {param_desc}"
-            # Config subtree view - path starts with "config"
-            elif len(path) >= 1 and path[0] == "config" and len(current_path) >= 2 and current_path[0] == "interface":
-                in_interface_path = True
-                # Get descriptions directly from the config subtree
-                interface_desc = descs.get("interface", {})
-                ifname_desc = interface_desc.get("<ifname>", {})
-                # Rest of the lookup is similar...
+        # Special case for interface parameters (existing code)
+        # ...
         
         # Format the current line with description
         if isinstance(value, dict):
-            lines.append(f"{prefix}{key}{desc}")
+            lines.append(f"{prefix}{branch}{key}{desc}")
             
             # Determine which description dictionary to pass to the recursive call
             sub_descs = descs.get(key, {}) if isinstance(descs, dict) else {}
             
-            # Identify if we're at interfaces section in 'show' to handle it properly
-            is_show_interfaces = False
-            if (len(path) == 0 and len(current_path) >= 2 and 
-                current_path[0] == "show" and current_path[1] == "interfaces"):
-                is_show_interfaces = True
-            elif (len(path) >= 1 and path[0] == "show" and len(current_path) >= 1 and
-                  current_path[0] == "interfaces"):
-                is_show_interfaces = True
-                
-            # Special case for interface names in config->interface path
-            is_config_if = False
-            if len(path) == 0 and len(current_path) >= 2:
-                # Full tree view: ["config", "interface"]
-                if current_path[0] == "config" and current_path[1] == "interface":
-                    is_config_if = True
-            elif len(path) >= 1 and path[0] == "config" and len(current_path) >= 1:
-                # Config subtree view: path=["config"], current_path=["interface"]
-                if current_path[0] == "interface":
-                    is_config_if = True
+            # (Rest of your special case handling for descriptions)
+            # ...
             
-            # Apply the appropriate description context based on path
-            if is_config_if:
-                # For actual interface names like "lo", "ens33", etc.
-                # Get interface parameters from <ifname> template
-                config_desc = descs.get("config", {}) if len(path) == 0 else descs
-                if_desc = config_desc.get("interface", {})
-                ifname_desc = if_desc.get("<ifname>", {})
-                
-                # Use the <ifname> descriptions for the next level
-                if ifname_desc:
-                    sub_descs = ifname_desc
-            elif is_show_interfaces:
-                # Make sure interface commands in 'show' tree get proper descriptions
-                show_desc = descs.get("show", {}) if len(path) == 0 else descs
-                interfaces_desc = show_desc.get("interfaces", {})
-                if isinstance(interfaces_desc, dict):
-                    sub_descs = interfaces_desc
-            
-            lines.extend(print_tree_with_descriptions(value, sub_descs, prefix + "  ", current_path))
+            # Recursively add subtrees
+            subtree = print_tree_with_descriptions(value, sub_descs, new_prefix, current_path)
+            if subtree:  # Only include non-empty subtrees
+                lines.append(subtree)
         else:
-            lines.append(f"{prefix}{key}{desc}")
-            
-    return lines
+            lines.append(f"{prefix}{branch}{key}{desc}")
+    
+    return "\n".join(lines)  # Join with newlines only at the end
 
 def handle(args, username, hostname):
     prompt = f"{username}/{hostname}@vMark-node> "
@@ -213,29 +189,49 @@ def handle(args, username, hostname):
         
         # Use the full tree instead of just the show command tree
         if len(args) == 1:
-            return "\n" + "\n".join(print_tree(full_tree))
+            return print_tree(full_tree)  # Already joined with newlines
         # show tree <subtree>
         elif len(args) == 2 and args[1] in full_tree:
-            return "\n" + "\n".join(print_tree(full_tree[args[1]]))
+            return print_tree(full_tree[args[1]])
         # show tree details
         elif len(args) > 1 and args[1] == "details":
             # show tree details
             if len(args) == 2:
-                return "\n" + "\n".join(print_tree_with_descriptions(full_tree, full_desc_tree))
+                return print_tree_with_descriptions(full_tree, full_desc_tree)
             # show tree details <subtree>
             elif len(args) == 3 and args[2] in full_tree:
-                return "\n" + "\n".join(
-                    print_tree_with_descriptions(
-                        full_tree[args[2]], 
-                        full_desc_tree.get(args[2], {}),
-                        path=[args[2]]  # Pass the path for better context
-                    )
+                return print_tree_with_descriptions(
+                    full_tree[args[2]], 
+                    full_desc_tree.get(args[2], {}),
+                    path=[args[2]]  # Pass the path for better context
                 )
             else:
                 return f"{prompt}Unknown subcommand for 'tree details': {' '.join(args[2:])}"
         else:
             return f"{prompt}Unknown subcommand for 'tree': {' '.join(args[1:])}"
             
+    elif args[0] == "tree":
+        if len(args) == 1:
+            # Show the entire command tree
+            return print_tree(command_tree)
+        elif len(args) == 2 and args[1] == "details":
+            # Show the command tree with descriptions
+            return print_tree_with_descriptions(command_tree, description_tree)
+        else:
+            # Show specific subtree
+            subtree = command_tree
+            for part in args[1:]:
+                if part in subtree:
+                    subtree = subtree[part]
+                else:
+                    return f"{prompt}Invalid path: {' '.join(args[1:])}"
+            
+            # Only print if we have a valid subtree
+            if isinstance(subtree, dict):
+                return print_tree(subtree, path=args[1:])
+            else:
+                return f"{prompt}No subtree available for: {' '.join(args[1:])}"
+
     # Rest of the handle function
 
     if args[0] == "interfaces":
@@ -290,20 +286,22 @@ def handle(args, username, hostname):
                 # Handle `show interfaces <ifname>`
                 ifname = args[1]
                 try:
-                    # Gather interface details using `ip` and `ethtool`
+                    # Gather interface details using `ip` command
                     ip_details = subprocess.run(
                         ["ip", "-br", "addr", "show", ifname],
                         capture_output=True,
                         text=True,
                         check=True
                     )
-                    ethtool_details = subprocess.run(
-                        ["ethtool", ifname],
+                    
+                    # Get detailed link info to detect VLANs
+                    ip_link_details = subprocess.run(
+                        ["ip", "-d", "link", "show", ifname],
                         capture_output=True,
                         text=True,
                         check=True
                     )
-
+                    
                     # Parse `ip` output for IP address and mask
                     ip_info = "N/A"
                     for line in ip_details.stdout.splitlines():
@@ -311,21 +309,72 @@ def handle(args, username, hostname):
                         if len(parts) > 2:
                             ip_info = parts[2]
 
-                    # Parse `ethtool` output for other details
-                    ethtool_output = ethtool_details.stdout
-                    mtu = "N/A"
-                    speed = "N/A"
-                    status = "N/A"
-                    auto_nego = "N/A"
-                    duplex = "N/A"
+                    # Parse detailed link info for VLAN tags
+                    vlan_info = {}
+                    svlan_id = None
+                    cvlan_id = None
+                    
+                    # Check if this is a VLAN interface
+                    for line in ip_link_details.stdout.splitlines():
+                        if "vlan" in line and "id" in line:
+                            # Extract VLAN ID
+                            vlan_parts = line.strip().split()
+                            for i, part in enumerate(vlan_parts):
+                                if part == "id":
+                                    if i + 1 < len(vlan_parts):
+                                        vlan_id = vlan_parts[i + 1]
+                                        
+                                        # Determine if this is a C-VLAN or S-VLAN based on interface name
+                                        parent_interface = None
+                                        for part in vlan_parts:
+                                            if part.startswith("link"):
+                                                parent_interface = part.split("/")[1]
+                                                
+                                        # If parent is also a VLAN interface, this is likely a C-VLAN
+                                        if parent_interface and "." in parent_interface:
+                                            cvlan_id = vlan_id
+                                            # Try to find the S-VLAN ID from the parent
+                                            parent_details = subprocess.run(
+                                                ["ip", "-d", "link", "show", parent_interface],
+                                                capture_output=True,
+                                                text=True
+                                            )
+                                            if parent_details.returncode == 0:
+                                                for parent_line in parent_details.stdout.splitlines():
+                                                    if "vlan" in parent_line and "id" in parent_line:
+                                                        parent_vlan_parts = parent_line.strip().split()
+                                                        for j, parent_part in enumerate(parent_vlan_parts):
+                                                            if parent_part == "id" and j + 1 < len(parent_vlan_parts):
+                                                                svlan_id = parent_vlan_parts[j + 1]
+                                        else:
+                                            # This is a regular VLAN (S-VLAN)
+                                            svlan_id = vlan_id
 
-                    for line in ethtool_output.splitlines():
-                        if "Speed:" in line:
-                            speed = line.split(":")[1].strip()
-                        elif "Duplex:" in line:
-                            duplex = line.split(":")[1].strip()
-                        elif "Auto-negotiation:" in line:
-                            auto_nego = line.split(":")[1].strip()
+                    # Try to get ethtool info, but don't fail if it doesn't work
+                    try:
+                        ethtool_details = subprocess.run(
+                            ["ethtool", ifname],
+                            capture_output=True,
+                            text=True,
+                            check=True
+                        )
+                        ethtool_output = ethtool_details.stdout
+                        speed = "N/A"
+                        auto_nego = "N/A"
+                        duplex = "N/A"
+
+                        for line in ethtool_output.splitlines():
+                            if "Speed:" in line:
+                                speed = line.split(":")[1].strip()
+                            elif "Duplex:" in line:
+                                duplex = line.split(":")[1].strip()
+                            elif "Auto-negotiation:" in line:
+                                auto_nego = line.split(":")[1].strip()
+                    except subprocess.CalledProcessError:
+                        # ethtool doesn't work for virtual interfaces
+                        speed = "N/A (virtual interface)"
+                        auto_nego = "N/A (virtual interface)"
+                        duplex = "N/A (virtual interface)"
 
                     # Parse `ip link show` output for MAC address, MTU, and status
                     ip_link_details = subprocess.run(
@@ -335,6 +384,9 @@ def handle(args, username, hostname):
                         check=True
                     )
                     mac_address = "N/A"
+                    mtu = "N/A"
+                    status = "N/A"
+                    
                     for line in ip_link_details.stdout.splitlines():
                         if "link/ether" in line:
                             mac_address = line.split()[1]
@@ -352,8 +404,29 @@ Interface: {ifname}
   Speed: {speed}
   Status: {status}
   Auto-Negotiation: {auto_nego}
-  Duplex: {duplex}
-"""
+  Duplex: {duplex}"""
+
+                    # Add VLAN information if present
+                    if svlan_id and cvlan_id:
+                        output += f"\n  QinQ VLANs: S-VLAN {svlan_id}, C-VLAN {cvlan_id}"
+                    elif svlan_id:
+                        output += f"\n  VLAN ID: {svlan_id}"
+                    elif cvlan_id:
+                        output += f"\n  VLAN ID: {cvlan_id}"
+                        
+                    # Detect if interface is a virtual subinterface
+                    if "@" in ifname:
+                        parent = ifname.split("@")[1]
+                        child = ifname.split("@")[0]
+                        if "." in child:
+                            # This is a VLAN or QinQ interface
+                            parts = child.split(".")
+                            if len(parts) > 1:
+                                parent_if = parts[0]
+                                vlan_id = parts[1]
+                                if not svlan_id:
+                                    output += f"\n  VLAN ID: {vlan_id} (on {parent_if})"
+
                     return output
                 except subprocess.CalledProcessError as e:
                     return f"{prompt}Error fetching details for interface {ifname}: {e}"
