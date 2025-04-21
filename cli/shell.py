@@ -8,7 +8,6 @@ from prompt_toolkit.formatted_text import FormattedText
 from prompt_toolkit.shortcuts import print_formatted_text
 from cli.dispatcher import dispatch
 from cli.commands import show, config, system  # Import command modules
-from pyroute2 import IPDB
 from cli.commands.config import handle
 
 # Combine descriptions from all command modules
@@ -18,73 +17,22 @@ command_descriptions = {
     "system": "Perform system operations",
 }
 
-# Centralized descriptions
-group_descriptions = {
-    "show": show.descriptions,
-    "config": config.descriptions,
-    "system": system.descriptions,
-}
-
-# Dynamically build the command tree and descriptions
+# Build the command tree from the modules
 def build_command_tree_and_descs():
-    # Dynamically fetch interface names
-    with IPDB() as ipdb:
-        interface_names = [
-            str(name) for name in ipdb.interfaces.keys()
-            if isinstance(name, str) and not name.isdigit()  # Exclude numeric keys
-        ]
-
-    # Helper function to recursively build the command tree
-    def build_tree_from_descriptions(desc_tree):
-        tree = {}
-        for key, value in desc_tree.items():
-            if key == "_options":
-                # Add options as leaf nodes for autocompletion
-                for option in value:
-                    tree[option] = None
-            elif isinstance(value, dict):
-                # Recursively build subtrees
-                tree[key] = build_tree_from_descriptions(value)
-            else:
-                # Leaf nodes (commands without subcommands)
-                tree[key] = None
-        return tree
-
-    # Generate the command tree from the description tree
+    # Generate the command tree from each module
+    command_tree = {
+        "config": config.get_command_tree(),
+        "show": show.get_command_tree(),
+        "system": system.get_command_tree(),
+    }
+    
+    # Generate the description tree from module descriptions
     description_tree = {
         "config": config.descriptions,
         "show": show.descriptions,
         "system": system.descriptions,
     }
-    command_tree = build_tree_from_descriptions(description_tree)
-
-    # Add dynamic interface names to the "config interface" subtree
-    if "config" in command_tree and "interface" in command_tree["config"]:
-        command_tree["config"]["interface"] = {
-            name: {
-                "mtu": None,
-                "speed": None,
-                "status": None,
-                "auto-nego": None,
-                "duplex": None,
-            }
-            for name in interface_names
-        }
-
-    # Add dynamic interface names to the "show interfaces" subtree
-    if "show" in command_tree and "interfaces" in command_tree["show"]:
-        command_tree["show"]["interfaces"] = {
-            name: {} for name in interface_names
-        }
-        # Add static subcommands for "show interfaces"
-        command_tree["show"]["interfaces"].update({
-            "ip": {
-                "": None,
-                "config": None,
-            },
-            "ipv4": None,
-        })
-
+    
     return command_tree, description_tree
 
 command_tree, description_tree = build_command_tree_and_descs()
@@ -132,15 +80,6 @@ def start_cli():
     # Call rebuild_completer after building the command tree
     rebuild_completer()
 
-    # Replace placeholders with dynamic handlers
-    def update_new_interface_tree(interface_name):
-        command_tree["config"]["new-interface"][interface_name] = {
-            "type": {"vlan": {}, "vlan-in-vlan": {}},
-            "cvlan-id": {},
-            "svlan-id": {},
-        }
-        rebuild_completer()
-
     # Create a key binding for '?' to display possible completions
     bindings = KeyBindings()
 
@@ -149,41 +88,88 @@ def start_cli():
         buffer = event.app.current_buffer
         text = buffer.text.strip()
         output = []
-
+        
+        # Do not insert the ? character into the buffer
+        # buffer.insert_text('?')  # This line should remain commented out
+        
         if not text:
             # Top-level commands
             output.append(("class:completion-header", "\nPossible completions:\n"))
             for key in command_tree.keys():
-                desc = description_tree[key].get("", "") if isinstance(description_tree[key], dict) else description_tree[key]
+                desc = command_descriptions.get(key, "")
                 output.append(("", f"  {key:<20} {desc}\n"))
         else:
             parts = text.split()
+            
+            # Find the current command tree and description tree
             subtree = command_tree
             descsubtree = description_tree
-
-            for part in parts:
+            
+            # Track if we're at a parameter level
+            at_param_level = False
+            param_name = None
+            last_command = parts[-1] if parts else ""
+            
+            # Navigate to the current position in both trees
+            for i, part in enumerate(parts):
+                if subtree is None:
+                    break  # Stop traversing if we've hit a leaf node
+                    
                 if part in subtree:
+                    # Check if we're at a parameter command
+                    if part in ["mtu", "speed", "status", "auto-nego", "duplex", "type", "cvlan-id", "svlan-id"]:
+                        at_param_level = True
+                        param_name = part
+                    
                     subtree = subtree[part]
-                    descsubtree = descsubtree.get(part, {})  # Safely get the next level
-                else:
-                    # Handle dynamic new-interface name
-                    if len(parts) > 2 and parts[0] == "config" and parts[1] == "new-interface":
-                        update_new_interface_tree(parts[2])
-                        subtree = command_tree["config"]["new-interface"][parts[2]]
-                        descsubtree = description_tree["config"]["new-interface"]
+                    # Special handling for interface parameters
+                    if i >= 2 and parts[0] == "config" and parts[1] == "interface" and i-1 == 2:
+                        # We're at an interface level, use <ifname> in description tree
+                        descsubtree = description_tree["config"]["interface"]["<ifname>"]
                     else:
-                        subtree = None
-                        descsubtree = None
-                        break
-
-            if subtree is not None and (not parts or buffer.text.endswith(' ')):
+                        descsubtree = descsubtree.get(part, {}) if isinstance(descsubtree, dict) else {}
+                else:
+                        # Handle dynamic interface names in config interface
+                        if i == 2 and parts[0] == "config" and parts[1] == "interface":
+                            # We're at a dynamic interface name
+                            if part in command_tree["config"]["interface"]:
+                                subtree = command_tree["config"]["interface"][part]
+                                # Use <ifname> for descriptions
+                                descsubtree = description_tree["config"]["interface"]["<ifname>"]
+                            else:
+                                subtree = None
+                                descsubtree = None
+                                break
+                        else:
+                            subtree = None
+                            descsubtree = None
+                            break
+            
+            # If we're at a parameter level, show options
+            if at_param_level and param_name and param_name in descsubtree:
+                param_desc = descsubtree[param_name]
+                
+                # Navigate to the parameter options
+                if isinstance(param_desc, dict) and "_options" in param_desc:
+                    output.append(("class:completion-header", f"\nPossible values for {param_name}:\n"))
+                    for option in param_desc["_options"]:
+                        output.append(("", f"  {option}\n"))
+                    print_formatted_text(FormattedText(output), end="")
+                    event.app.invalidate()
+                    return
+            
+            # Default behavior for showing available commands
+            if subtree is not None:
                 output.append(("class:completion-header", f"\nPossible completions: {text} ?\n"))
-                for key in subtree.keys():
-                    desc_entry = descsubtree.get(key, {})  # Safely get the description
-                    desc = desc_entry.get("", "") if isinstance(desc_entry, dict) else desc_entry
-                    output.append(("", f"  {key:<20} {desc}\n"))
+                if isinstance(subtree, dict):
+                    for key in subtree.keys():
+                        desc_entry = descsubtree.get(key, {}) if isinstance(descsubtree, dict) else {}
+                        desc = desc_entry.get("", "") if isinstance(desc_entry, dict) else desc_entry
+                        output.append(("", f"  {key:<20} {desc}\n"))
+                else:
+                    output.append(("", f"\nNo further options available for: {text}\n"))
             else:
-                output.append(("", f"\nNo further options available for: {text} ?\n"))
+                output.append(("", f"\nNo further options available for: {text}\n"))
 
         print_formatted_text(FormattedText(output), end="")
         event.app.invalidate()

@@ -1,38 +1,101 @@
 from pyroute2 import IPDB
 import subprocess
 
+# Define descriptions with proper _options for parameters
 descriptions = {
     "interface": {
+        "": "Configure network interfaces",
         "<ifname>": {
-            "mtu": "Set MTU size",
+            "": "Interface name",
+            "mtu": {
+                "": "Set MTU size",
+                "_options": ["<1-10000>"],  # Common MTU values
+            },
             "speed": {
-                "_options": ["10M", "100M", "1G", "10G"],
                 "": "Set interface speed",
+                "_options": ["10M", "100M", "1G", "10G"],
             },
             "status": {
-                "_options": ["up", "down"],
                 "": "Set interface status",
+                "_options": ["up", "down"],
             },
             "auto-nego": {
-                "_options": ["on", "off"],
                 "": "Enable or disable auto-negotiation",
+                "_options": ["on", "off"],
             },
             "duplex": {
-                "_options": ["half", "full"],
                 "": "Set duplex mode",
+                "_options": ["half", "full"],
             },
         }
     },
     #"new-interface": {
+    #    "": "Create a new interface",
     #    "<ifnamenewif>": {
-    #        "type": "Set interface type",
-    #        "cvlan-id": "Set CVLAN ID",
-    #        "svlan-id": "Set SVLAN ID",
+    #        "": "New interface name",
+    #        "type": {
+    #            "": "Set interface type",
+    #            "_options": ["vlan", "vlan-in-vlan"],
+    #        },
+    #        "cvlan-id": {
+    #            "": "Set CVLAN ID",
+    #            "_options": ["1-4094"],
+    #        },
+    #        "svlan-id": {
+    #            "": "Set SVLAN ID",
+    #            "_options": ["1-4094"],
+    #        },
     #    }
     #},
-    #"rf2544": "Run RFC2544 tests",
-    #"new-rf2544": "Create a new RFC2544 test",
 }
+
+def get_command_tree():
+    """Build and return command tree based on descriptions"""
+    # Dynamically fetch interface names
+    with IPDB() as ipdb:
+        interface_names = [
+            str(name) for name in ipdb.interfaces.keys()
+            if isinstance(name, str) and not name.isdigit()  # Exclude numeric keys
+        ]
+    
+    # Helper function to recursively build the command tree
+    def build_tree_from_descriptions(desc_tree):
+        tree = {}
+        for key, value in desc_tree.items():
+            if key == "_options":
+                # Add options as leaf nodes for autocompletion
+                for option in value:
+                    tree[option] = None
+            elif isinstance(value, dict):
+                # Recursively build subtrees
+                tree[key] = build_tree_from_descriptions(value)
+            else:
+                # Leaf nodes (commands without subcommands)
+                tree[key] = None
+        return tree
+
+    # Build basic tree from descriptions
+    command_tree = build_tree_from_descriptions(descriptions)
+    
+    # Add dynamic interface names to the "interface" subtree
+    if "interface" in command_tree:
+        interface_subtree = {
+            name: {
+                "mtu": None,
+                "speed": None,
+                "status": None,
+                "auto-nego": None,
+                "duplex": None,
+            }
+            for name in interface_names
+        }
+        command_tree["interface"] = interface_subtree
+    
+    # Setup new-interface placeholder if it exists
+    if "new-interface" in command_tree:
+        command_tree["new-interface"] = {}  # Will be populated dynamically
+    
+    return command_tree
 
 def run_with_sudo(command):
     try:

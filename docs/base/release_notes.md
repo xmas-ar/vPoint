@@ -1,6 +1,12 @@
 
 # Release Notes
 
+Version 0.1.6: bug fixes.
+-------------------------
+
+- Moving all tree-like details to command modules to keep scalability.
+- Fixing help for config interface commands.
+
 Version 0.1.5: show/config commands.
 -------------------------
 - Added 'config interface' commands:
