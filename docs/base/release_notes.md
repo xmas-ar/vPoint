@@ -1,5 +1,12 @@
-
 # Release Notes
+
+Version 0.2.1: bug fixes.
+-------------------------
+
+- Bug fixing when only '?' is typed.
+- Fixed autocompletion for _options in config commands.
+- Fixed bug with some autocompletions when inputing values for _options.
+- Added mid-word autocompletion.
 
 Version 0.2.0: new-interface & delete interface + tree improvements.
 -------------------------
