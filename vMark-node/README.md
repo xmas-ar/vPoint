@@ -10,6 +10,7 @@
 - GPLv3 License.
 - Add & delete sub.interfaces (**QinQ** / dual-tags supported) (v0.2)
 - **TWAMP** Light implementation for End-to-End L3 tests. (**ipv4 & ipv6, sender/responder modes**). (v0.3)
+- Pypy packaging. (v0.3.1)
 
 **Feature roadmap:**
  - web GUI (flask).
