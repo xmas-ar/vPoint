@@ -10,7 +10,7 @@
 - GPLv3 License.
 - Add & delete sub.interfaces (**QinQ** / dual-tags supported) (v0.2)
 - **TWAMP** Light implementation for End-to-End L3 tests. (**ipv4 & ipv6, sender/responder modes**). (v0.3)
-- Pypy packaging. (v0.3.1)
+- Pypi (pip) packaging. (v0.3.1)
 
 **Feature roadmap:**
  - web GUI (flask).
@@ -61,3 +61,10 @@ gh repo clone https://github.com/xmas-ar/vMark-node.git
 cd vMark-node/vMark-node
 pip3 install -r requirements.txt
 python3 main.py
+```
+___
+## PIP Install
+
+```
+pip install vmark-node
+vmark-node
