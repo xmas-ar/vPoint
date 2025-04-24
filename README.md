@@ -8,7 +8,7 @@ Latest version: **0.3.0** / Release notes: [Link](https://github.com/xmas-ar/vMa
 - Shell/Dispatcher/Modules/Plugins architecture.
 - Complete **Interface management**.
 - Add & delete sub.interfaces (**QinQ** / dual-tags supported) (v0.2)
-- **TWAMP** Light implementation for End-to-End Layer 3 tests. (**ipv4 & ipv6**). (v0.3)
+- **TWAMP** Light implementation for End-to-End L3 tests. (**ipv4 & ipv6, sender/responder modes**). (v0.3)
 
 **Feature roadmap:**
  - web GUI (flask).
