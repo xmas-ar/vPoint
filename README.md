@@ -41,7 +41,7 @@
 Provides command-line auto-completion, some help-related features and dynamically builds the command tree based on the modules and installed plugins. This enables a modular, scalable and re-usable interactive CLI experience.
 
 **Dispatcher**:
-Interprets user commands, determines the appropriate module to handle each command, and routes execution accordingly. The dispatcher acts as the central coordinator between the shell and the available modules/plugins.
+Interprets user commands, determines the appropriate module to handle each command, and routes execution accordingly. The dispatcher acts as the central coordinator between the shell and the available modules/plugins, Web-UI and API interactions talk directly with the Dispatcher.
 
 **Modules**:
 Shell modules encapsulate core command logic and define the command tree structure. Examples: 'show', 'config', and 'system', each representing a set of related commands and subcommands with item descriptions.
