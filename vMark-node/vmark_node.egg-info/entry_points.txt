@@ -1,2 +1,0 @@
-[console_scripts]
-vmark-node = main:start_cli
