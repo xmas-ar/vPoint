@@ -8,10 +8,7 @@
 - Shell/Dispatcher/Modules/Plugins architecture.
 - Complete **Interface management**.
 - Add & delete sub.interfaces (**QinQ** / dual-tags supported) (v0.2)
-- **TWAMP** Light implementation for End-to-End L3 tests. (**ipv4 & ipv6, sender/responder modes**). (v0.3):
-<p align="center">
-  <img src="https://github.com/user-attachments/assets/f03e03f7-961f-4c25-8ed4-d95991735c05" alt="xxx">
-</p>
+- **TWAMP** Light implementation for End-to-End L3 tests. (**ipv4 & ipv6, sender/responder modes**). (v0.3)
 
 **Feature roadmap:**
  - web GUI (flask).
@@ -19,6 +16,11 @@
  - Loopback testing with automatic timeout.
  - RFC2544 reflector.
  - open-BFDD implementation for service assurance (p2p session).
+
+<img src="https://github.com/user-attachments/assets/f03e03f7-961f-4c25-8ed4-d95991735c05" alt="xxx">
+___
+
+
 ___
 
 <h1 align="center"># Overview</h1>
