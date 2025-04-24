@@ -1,5 +1,10 @@
 # Release Notes
 
+Version 0.3.1: workflow update.
+-------------------------
+
+- Packaging to pip.
+
 Version 0.3.0: onyx-Twamp implementation.
 -------------------------
 

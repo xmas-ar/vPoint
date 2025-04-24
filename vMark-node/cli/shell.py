@@ -516,7 +516,7 @@ def af_view_history(history, count=None):
 
 # Additional feature: Check the version
 def af_check_version():
-    VERSION = "0.3.0"  # Project version
+    VERSION = "0.3.1"  # Project version
     print(f"vMark-node version: {VERSION}")
 
 # Additional feature: Display hardware and OS information
