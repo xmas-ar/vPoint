@@ -1,22 +1,20 @@
 <h1 align="center">vMark-node by Pathgate</h1>
 <h2 align="center">An effort towards the first Ethernet software-based open source demarcation NID.</h2>
 
-Latest version: **0.2.1** / Release notes: [Link](https://github.com/xmas-ar/vMark-node/blob/public/docs/base/release_notes.md) 
+Latest version: **0.3.0** / Release notes: [Link](https://github.com/xmas-ar/vMark-node/blob/public/docs/base/release_notes.md) 
 
 **Features:**
-- Modular tree-style CLI with autocompletions.
+- Modular tree-style CLI with tab autocompletions and '?' helper.
 - Shell/Dispatcher/Modules/Plugins architecture.
-- Network interfaces manipulation. (v0.1.5)
-- Add & delete sub.interfaces (QinQ / dual-tags supported) (v0.2.0)
+- Complete **Interface management**.
+- Add & delete sub.interfaces (**QinQ** / dual-tags supported) (v0.2)
+- **TWAMP** Light implementation for End-to-End Layer 3 tests. (**ipv4 & ipv6**). (v0.3)
 
 **Feature roadmap:**
- - Complete Interface management.
  - web GUI (flask).
  - Docker & pip installations.
  - Loopback testing with automatic timeout.
- - In-band management through QinQ (dualtags).
  - RFC2544 reflector.
- - TWAMP implementation for ad-hoc testing.
  - open-BFDD implementation for service assurance (p2p session).
 ___
 

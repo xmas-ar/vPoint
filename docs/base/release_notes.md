@@ -1,5 +1,52 @@
 # Release Notes
 
+Version 0.3.0: onyx-Twamp implementation.
+-------------------------
+
+- New **TWAMP Light** feature for ad-hoc performance E2E L3 testing.
+- Twamp supports both **ipv4 and ipv6** standards.
+- commands folders renamed to modules.
+- Improved overall '?' helper functionality and tab completion hints.
+- List of commands added:
+
+```
+xmas/rocky01@vMark-node> show tree details twamp
+dscptable - Display DSCP mapping table
+ipv4 - IPv4 TWAMP commands
+│   ├── responder - Start TWAMP responder session
+│   │   ├── do-not-fragment - Set Do Not Fragment flag
+│   │   ├── padding - Set packet padding
+│   │   ├── port - Set local port (REQUIRED)
+│   │   ├── tos - Set Type of Service
+│   │   └── ttl - Set Time to Live
+│   └── sender - Start TWAMP sender session
+│       ├── count - Set number of packets
+│       ├── destination-ip - Destination IP address (REQUIRED)
+│       ├── do-not-fragment - Set Do Not Fragment flag
+│       ├── interval - Set packet interval
+│       ├── padding - Set packet padding
+│       ├── port - Set destination port (REQUIRED)
+│       ├── tos - Set Type of Service
+│       └── ttl - Set Time to Live
+ipv6 - IPv6 TWAMP commands
+    ├── responder - Start TWAMP responder session
+    │   ├── do-not-fragment - Set Do Not Fragment flag
+    │   ├── padding - Set packet padding
+    │   ├── port - Set local port (REQUIRED)
+    │   ├── tos - Set Type of Service
+    │   └── ttl - Set Time to Live
+    └── sender - Start TWAMP sender session
+        ├── count - Set number of packets
+        ├── destination-ip - Destination IPv6 address (REQUIRED)
+        ├── do-not-fragment - Set Do Not Fragment flag
+        ├── interval - Set packet interval
+        ├── padding - Set packet padding
+        ├── port - Set destination port (REQUIRED)
+        ├── tos - Set Type of Service
+        └── ttl - Set Time to Live
+```
+
+
 Version 0.2.1: bug fixes.
 -------------------------
 

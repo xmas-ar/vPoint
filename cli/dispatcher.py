@@ -1,4 +1,4 @@
-from cli.commands import show, config, system
+from cli.modules import show, config, system, twamp  # Changed from commands to modules
 
 def dispatch(cmd, username, hostname):
     tokens = cmd.strip().split()
@@ -11,5 +11,7 @@ def dispatch(cmd, username, hostname):
         return config.handle(tokens[1:], username, hostname)
     elif tokens[0] == 'system':
         return system.handle(tokens[1:], username, hostname)
+    elif tokens[0] == 'twamp':  # Add TWAMP command handling
+        return twamp.handle(tokens[1:], username, hostname)
     else:
         return f"{username}/{hostname}@vMark-node> Unknown command: {tokens[0]}"
