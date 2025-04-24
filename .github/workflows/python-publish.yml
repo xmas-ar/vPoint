@@ -14,7 +14,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-           path: .
+           path: vmark-node-checkout
 
       - uses: actions/setup-python@v5
         with:
