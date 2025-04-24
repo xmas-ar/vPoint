@@ -7,6 +7,7 @@
 - Modular tree-style CLI with tab autocompletions and '?' helper.
 - Shell/Dispatcher/Modules/Plugins architecture.
 - Complete **Interface management**.
+- GPLv3 License.
 - Add & delete sub.interfaces (**QinQ** / dual-tags supported) (v0.2)
 - **TWAMP** Light implementation for End-to-End L3 tests. (**ipv4 & ipv6, sender/responder modes**). (v0.3)
 
