@@ -13,8 +13,6 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-        with:
-           path: vmark-node-checkout
 
       - uses: actions/setup-python@v5
         with:
@@ -22,17 +20,19 @@ jobs:
 
       - name: Install build tools
         run: |
-          cd vmark-node-checkout
+          cd vMark-node
           python -m pip install --upgrade build setuptools wheel
 
       - name: Build release distributions
-        run: python -m build .
+        run: |
+          cd vMark-node
+          python -m build .
 
       - name: Upload distributions
         uses: actions/upload-artifact@v4
         with:
           name: release-dists
-          path: dist/
+          path: vMark-node/dist/
 
   pypi-publish:
     runs-on: ubuntu-latest

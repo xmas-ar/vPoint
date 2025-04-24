@@ -11,12 +11,16 @@ else:
 setup(
     name="vmark-node",
     version="0.3.0",
-    packages=["cli", "plugins"] + find_packages(include=["cli.*", "plugins.*"]),
+    packages=find_packages(include=["cli", "cli.*", "plugins", "plugins.*"]),
     install_requires=requirements,
     entry_points={
         'console_scripts': [
             'vmark-node=main:start_cli',
         ],
+    },
+    include_package_data=True,  # Include non-Python files
+    package_data={
+        "plugins": ["*"],  # Include all files in the plugins directory
     },
     author="Pathgate",
     description="An Ethernet software-based open source demarcation NID",
@@ -26,7 +30,6 @@ setup(
     license="GPL-3.0-only",  # Use SPDX identifier instead of classifier
     classifiers=[
         "Programming Language :: Python :: 3",
-        # Remove license classifier as recommended
         "Operating System :: OS Independent",
     ],
 )

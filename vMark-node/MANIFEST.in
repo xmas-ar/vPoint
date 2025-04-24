@@ -1,0 +1,6 @@
+# filepath: /home/xmas/GIT-PG/vMark-node/vMark-node/MANIFEST.in
+include requirements.txt
+include LICENSE
+include README.md
+recursive-include plugins *
+recursive-include docs *
