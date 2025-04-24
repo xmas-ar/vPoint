@@ -11,7 +11,7 @@ else:
 setup(
     name="vmark-node",
     version="0.3.0",
-    packages=find_packages(),
+    packages=["cli", "plugins"] + find_packages(include=["cli.*", "plugins.*"]),
     install_requires=requirements,
     entry_points={
         'console_scripts': [
