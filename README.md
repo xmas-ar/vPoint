@@ -16,6 +16,9 @@
  - Loopback testing with automatic timeout.
  - RFC2544 reflector.
  - open-BFDD implementation for service assurance (p2p session).
+ - fiber-interface management and optic levels monitoring.
+ - Enable API-operated dispatcher.
+ - SNMP Support.
 
 <img src="https://github.com/user-attachments/assets/f03e03f7-961f-4c25-8ed4-d95991735c05" alt="xxx">
 <h2 align="center"></h2>
