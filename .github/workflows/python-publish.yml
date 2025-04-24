@@ -21,7 +21,9 @@ jobs:
           python-version: "3.x"
 
       - name: Install build tools
-        run: python -m pip install --upgrade build setuptools wheel
+        run: |
+          cd vmark-node-checkout
+          python -m pip install --upgrade build setuptools wheel
 
       - name: Build release distributions
         run: python -m build .
