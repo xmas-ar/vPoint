@@ -13,6 +13,7 @@ cli/modules/show.py
 cli/modules/system.py
 cli/modules/twamp.py
 plugins/__init__.py
+plugins/__pycache__/__init__.cpython-39.pyc
 plugins/twamp/onyx.py
 plugins/twamp/readme.md
 plugins/twamp/__pycache__/onyx.cpython-39.pyc
