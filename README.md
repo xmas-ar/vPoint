@@ -61,3 +61,9 @@ gh repo clone https://github.com/xmas-ar/vMark-node.git
 cd vMark-node/vMark-node
 pip3 install -r requirements.txt
 python3 main.py
+
+## PIP Install
+
+```
+pip install vmark-node
+vmark-node
