@@ -1,6 +1,6 @@
 # Release Notes
 
-Version 0.3.2: workflow update.
+Version 0.3.2/3: workflow update.
 -------------------------
 
 - Fixes to pip package.

@@ -10,8 +10,9 @@ else:
 
 setup(
     name="vmark-node",
-    version="0.3.2",
+    version="0.3.3",
     packages=find_packages(include=["cli", "cli.*", "plugins", "plugins.*"]),
+    py_modules=["main"],
     install_requires=requirements,
     entry_points={
         'console_scripts': [
