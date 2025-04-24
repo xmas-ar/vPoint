@@ -18,13 +18,8 @@
  - open-BFDD implementation for service assurance (p2p session).
 
 <img src="https://github.com/user-attachments/assets/f03e03f7-961f-4c25-8ed4-d95991735c05" alt="xxx">
-___
-
-
-___
-
+<h2 align="center"></h2>
 <h1 align="center"># Overview</h1>
-
 
 <p align="center">vMark-node is a software-based open-source Ethernet demarcation NID designed for flexibility and democratization in the Carrier industry.</p>
 
