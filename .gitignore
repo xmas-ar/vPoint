@@ -1,0 +1,10 @@
+# Ignore build artifacts
+/dist/
+
+# Ignore virtual environments
+.venv/
+env/
+
+# Ignore bytecode files
+*.pyc
+__pycache__/
