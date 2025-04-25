@@ -15,6 +15,7 @@
 **Feature roadmap:**
  - web GUI (flask).
  - Docker version.
+ - MEF3 Services deployment.
  - Loopback testing with automatic timeout.
  - RFC2544 testing and reflector.
  - open-BFDD implementation for service assurance (p2p session).
