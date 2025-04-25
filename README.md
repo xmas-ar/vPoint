@@ -14,9 +14,9 @@
 
 **Feature roadmap:**
  - web GUI (flask).
- - Docker & pip installations.
+ - Docker version.
  - Loopback testing with automatic timeout.
- - RFC2544 reflector.
+ - RFC2544 testing and reflector.
  - open-BFDD implementation for service assurance (p2p session).
  - fiber-interface management and optic levels monitoring.
  - Enable API-operated dispatcher.
