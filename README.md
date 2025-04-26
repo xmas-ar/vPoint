@@ -15,6 +15,8 @@
 **Feature roadmap:**
  - web GUI (flask).
  - Docker version.
+ - Ethernet OAM.
+ - L2TP.
  - MEF3 Services deployment.
  - Loopback testing with automatic timeout.
  - RFC2544 testing and reflector.
