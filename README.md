@@ -13,7 +13,7 @@
 - Pypi (pip) packaging. (v0.3.1)
 
 **Feature roadmap:**
- - web GUI (flask).
+ - web GUI.
  - Docker version.
  - Ethernet OAM.
  - L2TP.
