@@ -18,6 +18,7 @@
  - Ethernet OAM.
  - L2TP.
  - MEF3 Services deployment.
+ - Automated EVC-WAN failover.
  - Loopback testing with automatic timeout.
  - RFC2544 testing and reflector.
  - open-BFDD implementation for service assurance and OAM.
