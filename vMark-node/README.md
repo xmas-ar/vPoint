@@ -13,12 +13,15 @@
 - Pypi (pip) packaging. (v0.3.1)
 
 **Feature roadmap:**
- - web GUI (flask).
- - Docker & pip installations.
+ - web GUI.
+ - Docker version.
+ - Ethernet OAM.
+ - L2TP.
  - MEF3 Services deployment.
+ - Automated EVC-WAN failover.
  - Loopback testing with automatic timeout.
- - RFC2544 reflector.
- - open-BFDD implementation for service assurance (p2p session).
+ - RFC2544 testing and reflector.
+ - open-BFDD implementation for service assurance and OAM.
  - fiber-interface management and optic levels monitoring.
  - Enable API-operated dispatcher.
  - SNMP Support.
