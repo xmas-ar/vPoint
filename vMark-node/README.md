@@ -59,6 +59,9 @@ Integrate external libraries or tools to extend functionality. For example, plug
 
 ___
 
+<h1 align="center">📎 Installation methods</h1>
+
+
 ## Quick Install
 
 ```
@@ -76,11 +79,13 @@ vmark-node
 ```
 ___
 
-<h1 align="center">🔄 Running as a Background Service (Production)</h1>
+### 🔄 Running as a Background Service (Production)
 
-- To ensure `vmark-node` stays running in the background (e.g., to keep the API server accessible by `vMark`), you can use **`systemd`** (recommended for Linux servers) or **`supervisord`**.
+To ensure `vmark-node` stays running in the background (e.g., to keep the API server accessible by `vMark`), you can use **`systemd`** (recommended for Linux servers) or **`supervisord`**.
 
 ___
+
+
 ### ✅ Option 1: `systemd` Service (Recommended for Linux)
 
 1. **Create a service file:**
