@@ -5,18 +5,19 @@ from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.formatted_text import FormattedText
 from prompt_toolkit.shortcuts import print_formatted_text
 from cli.dispatcher import dispatch
-from cli.modules import show, config, system, twamp  # Changed from commands to modules
+from cli.modules import show, config, system, twamp, register  # Add register import
 from cli.modules.config import handle  # Change any direct imports
 import os
 import getpass
 import platform
 
-# Combine descriptions from all command modules
+# Add to command_descriptions dictionary
 command_descriptions = {
     "show": "Show system-related information",
     "config": "Configure system settings",
     "system": "Perform system operations",
     "twamp": "TWAMP testing commands",
+    "register": "Register with vMark server"  # Add this line
 }
 
 # Create a custom completer that extends NestedCompleter but handles parameter sequences better
@@ -24,29 +25,21 @@ class VMarkCompleter(Completer):
     def __init__(self, command_tree, description_tree):
         self.command_tree = command_tree
         self.description_tree = description_tree
+        # Define known parameter keywords across different commands
         self.param_commands = [
-            # Existing parameters
-            "mtu", "speed", "status", "auto-nego", "duplex", "type", 
+            # config interface/new-interface parameters
+            "mtu", "speed", "status", "auto-nego", "duplex", "type",
             "cvlan-id", "svlan-id", "ipv4address", "netmask", "parent-interface",
-            # Add TWAMP parameters
-            "destination-ip", "port", "count", "interval", "padding", "ttl", "tos", 
-            "do-not-fragment"
+            # twamp parameters
+            "destination-ip", "port", "count", "interval", "padding", "ttl", "tos",
+            "do-not-fragment",
+            # register parameters
+            "listen-ip", "port", "pin" # Added register parameters
         ]
-        
-    def create_completion(self, text, partial="", display=None, display_meta=""):
-        """Helper to create consistent completions"""
-        completion_text = text[len(partial):] if partial else text
-        return Completion(
-            completion_text,
-            start_position=0,  # Changed from -len(partial) to 0
-            display=text,  # Show full command in menu
-            display_meta=display_meta
-        )
 
     def get_available_interfaces(self):
-        """Get list of available network interfaces"""
+        """Get list of available network interfaces using 'ip' command."""
         try:
-            import subprocess
             result = subprocess.run(
                 ["ip", "-br", "link", "show"],
                 capture_output=True,
@@ -56,444 +49,245 @@ class VMarkCompleter(Completer):
             interfaces = []
             for line in result.stdout.splitlines():
                 if_name = line.split()[0]
-                # Filter out virtual and special interfaces
-                if (not if_name.startswith('lo') and 
-                    not if_name.startswith('vir') and 
+                # Basic filtering (can be adjusted)
+                if (not if_name.startswith('lo') and
+                    not if_name.startswith('vir') and
                     not if_name.startswith('docker') and
-                    not if_name.startswith('br') and
+                    not if_name.startswith('br-') and # More specific bridge filter
+                    not if_name.startswith('veth') and
                     not if_name.startswith('tun') and
-                    not if_name.startswith('tap') and
-                    not if_name.startswith('veth')):
+                    not if_name.startswith('tap')):
                     interfaces.append(if_name)
             return interfaces
         except Exception:
+            # Fallback or log error if needed
             return []
-
-    def get_completions(self, document, complete_event):
-        text = document.text_before_cursor
-        parts = text.strip().split()
-        current_command = parts[0] if parts else ""
-        used_params = set()
-
-        # Handle TWAMP commands
-        if current_command == "twamp" and len(parts) >= 4:
-            mode = parts[2]  # sender or responder
-            twamp_desc = self.description_tree.get("twamp", {})
-            version_desc = twamp_desc.get(parts[1], {})
-            mode_desc = version_desc.get(mode, {})
-
-            # Track used parameters
-            for i in range(3, len(parts) - 1, 2):
-                if parts[i] in mode_desc:
-                    used_params.add(parts[i])
-
-        if not text.strip():
-            # Top level completions
-            for key in self.command_tree.keys():
-                yield Completion(
-                    key,
-                    start_position=0,  # Keep 0 for empty input
-                    display=key,
-                    display_meta=command_descriptions.get(key, "")
-                )
-            return
-        
-        # Split into command parts
-        parts = text.strip().split()
-        current_text = parts[-1] if parts else ""
-        
-        # Check if we're completing a command or a partial command
-        is_completing_command = text[-1].isspace() if text else False
-        
-        # Start from the root of the tree
-        subtree = self.command_tree
-        descsubtree = self.description_tree
-        
-        # Track if we've encountered a new-interface command
-        new_interface_command = False
-        interface_name = None
-        
-        # Track used parameters for both new-interface and TWAMP
-        used_params = set()
-        
-        # Track if we're in a TWAMP command
-        twamp_command = len(parts) >= 2 and parts[0] == "twamp"
-        twamp_mode = None
-        if twamp_command:
-            if "sender" in parts:
-                twamp_mode = "sender"
-            elif "responder" in parts:
-                twamp_mode = "responder"
-        
-        # First determine if we're in a new-interface command or TWAMP command
-        if len(parts) >= 2:
-            if parts[0] == "config" and parts[1] == "new-interface":
-                new_interface_command = True
-                if len(parts) >= 3:
-                    interface_name = parts[2]
-                
-                # Track used parameters
-                i = 3
-                while i < len(parts):
-                    if i < len(parts) and parts[i] in self.param_commands:
-                        used_params.add(parts[i])
-                        if i + 1 < len(parts):
-                            i += 2
-                        else:
-                            break
-                    else:
-                        i += 1
-            elif parts[0] == "twamp":
-                # Track used TWAMP parameters
-                i = 2  # Start after "twamp ipv4"
-                while i < len(parts):
-                    if i < len(parts) and parts[i] in self.param_commands:
-                        used_params.add(parts[i])
-                        if i + 1 < len(parts):
-                            i += 2
-                        else:
-                            break
-                    else:
-                        i += 1
-        
-        # SIMPLIFIED DETECTION LOGIC
-        # First determine if we're in a new-interface command
-        if len(parts) >= 2 and parts[0] == "config" and parts[1] == "new-interface":
-            new_interface_command = True
-            if len(parts) >= 3:
-                interface_name = parts[2]
-            
-            # Track used parameters by scanning the entire command
-            i = 3  # Start after "config new-interface <name>"
-            while i < len(parts):  
-                if i < len(parts) and parts[i] in self.param_commands:
-                    used_params.add(parts[i])
-                    # Skip the parameter's value and reset subtree
-                    if i + 1 < len(parts):
-                        i += 2
-                    else:
-                        break
-                else:
-                    i += 1
-        
-        # SIMPLIFIED NAVIGATION LOGIC
-        # Navigate through the command tree to reach the current position
-        navigate_parts = parts if is_completing_command else parts[:-1]
-        for i, part in enumerate(navigate_parts):
-            if not isinstance(subtree, dict):
-                break
-            
-            if part in subtree:
-                subtree = subtree[part]
-                descsubtree = descsubtree.get(part, {}) if isinstance(descsubtree, dict) else {}
-            else:
-                # Handle dynamic interface name in new-interface command
-                if i == 2 and new_interface_command:
-                    subtree = self.command_tree["config"]["new-interface"]["<ifname>"]
-                    descsubtree = self.description_tree["config"]["new-interface"]["<ifname>"]
-                # Handle TWAMP parameter values
-                elif len(parts) >= 2 and parts[0] == "twamp":
-                    # After a TWAMP parameter value, reset to show remaining options
-                    if parts[-2] in self.param_commands:
-                        # Track parameter-value pairs for both sender and responder
-                        param_pairs = {}
-                        used_params = set()
-                        
-                        # Scan for used parameters
-                        for i in range(len(parts)-1):
-                            if parts[i] in self.param_commands and i+1 < len(parts):
-                                param_pairs[parts[i]] = parts[i+1]
-                                used_params.add(parts[i])
-                        
-                        if "sender" in parts:
-                            subtree = self.command_tree["twamp"]["ipv4"]["sender"]
-                            descsubtree = self.description_tree["twamp"]["ipv4"]["sender"]
-                            
-                            # Reset navigation to show remaining options
-                            if is_completing_command:
-                                # Show all remaining parameters that haven't been used
-                                for key in subtree.keys():
-                                    if key not in used_params and not key.startswith('_'):
-                                        desc = ""
-                                        if isinstance(descsubtree, dict):
-                                            desc_entry = descsubtree.get(key, {})
-                                            if isinstance(desc_entry, dict):
-                                                desc = desc_entry.get("", "")
-                                            elif isinstance(desc_entry, str):
-                                                desc = desc_entry
-                                        yield self.create_completion(key, "", display_meta=desc)
-                                
-                        elif "responder" in parts:
-                            subtree = self.command_tree["twamp"]["ipv4"]["responder"]
-                            descsubtree = self.description_tree["twamp"]["ipv4"]["responder"]
-                            
-                            # Reset navigation to show remaining options
-                            if is_completing_command:
-                                # Show all remaining parameters that haven't been used
-                                for key in subtree.keys():
-                                    if key not in used_params and not key.startswith('_'):
-                                        desc = ""
-                                        if isinstance(descsubtree, dict):
-                                            desc_entry = descsubtree.get(key, {})
-                                            if isinstance(desc_entry, dict):
-                                                desc = desc_entry.get("", "")
-                                            elif isinstance(desc_entry, str):
-                                                desc = desc_entry
-                                        yield self.create_completion(key, "", display_meta=desc)
-                # Reset to parameter level after any parameter value
-                elif new_interface_command and i > 2 and len(parts) > i:
-                    subtree = self.command_tree["config"]["new-interface"]["<ifname>"]
-                    descsubtree = self.description_tree["config"]["new-interface"]["<ifname>"]
-                else:
-                    subtree = None
-                    break
-        
-        # SPECIAL CASE HANDLING
-        # Case 1: We're right after a parameter name (ready to show parameter values)
-        if new_interface_command and interface_name and len(parts) >= 4 and parts[-2] in self.param_commands:
-            param_name = parts[-2]
-            param_desc = self.description_tree["config"]["new-interface"]["<ifname>"].get(param_name, {})
-            partial = parts[-1] if parts else ""
-            
-            # Special case for parent-interface
-            if param_name == "parent-interface":
-                # Get actual network interfaces from the system
-                interfaces = self.get_available_interfaces()
-                
-                # Show interfaces only if we haven't selected one yet
-                if not partial or (partial and not partial == interfaces[0]):
-                    for if_name in interfaces:
-                        if if_name.startswith(partial):
-                            yield self.create_completion(
-                                if_name,
-                                partial,
-                                display=if_name,
-                                display_meta="Available interface"
-                            )
-                return
-
-            # For other parameters with _options
-            elif isinstance(param_desc, dict) and "_options" in param_desc:
-                format_hint = param_desc.get("format", "")
-                
-                # Always show format hint when no partial input
-                if not partial:
-                    yield Completion(
-                        "",  # Don't insert text
-                        start_position=0,
-                        display=param_desc["_options"][0],
-                        display_meta=format_hint
-                    )
-
-                # Show format hint for ipv4address parameter
-                if param_name == "ipv4address":
-                    yield Completion(
-                        "",
-                        start_position=0,
-                        display="<x.x.x.x>",
-                        display_meta="Enter IPv4 address in dotted decimal format (e.g., 192.168.1.1)"
-                    )
-                return
-        
-        # Case 2: After any parameter-value pair, show the next available parameters
-        elif new_interface_command and interface_name:
-            # Check if we're after a parameter value or parameter-value pair
-            if len(parts) >= 4:
-                # We're right after a parameter value or parameter-value pair
-                partial = parts[-1] if parts else ""
-                
-                # Reset to parameter level and show available parameters
-                param_subtree = self.command_tree["config"]["new-interface"]["<ifname>"]
-                
-                # Show all remaining parameters
-                for key in param_subtree.keys():
-                    # Skip used parameters and special entries
-                    if key in used_params or key.startswith("_"):
-                        continue
-                    
-                    if not partial or key.startswith(partial):
-                        desc = ""
-                        if key in self.description_tree["config"]["new-interface"]["<ifname>"]:
-                            desc_entry = self.description_tree["config"]["new-interface"]["<ifname>"].get(key, {})
-                            if isinstance(desc_entry, dict) and "" in desc_entry:
-                                desc = desc_entry[""]
-                    
-                        # Only complete what's missing if there's a partial match
-                        yield self.create_completion(key, partial, display_meta=desc)
-                return
-        
-        # Case 2: After any parameter-value pair, show the next available parameters
-        # This is the key case that ensures tab completion works after "cvlan-id 20 "
-        elif new_interface_command and interface_name and is_completing_command:
-            # If we're at a completion point (space at the end) after any parameter-value pair,
-            # reset to the parameter level and show available parameters
-            param_subtree = self.command_tree["config"]["new-interface"]["<ifname>"]
-            
-            # Show all remaining parameters
-            for key in param_subtree.keys():
-                # Skip used parameters and special entries
-                if key in used_params or key.startswith("_"):
-                    continue
-                
-                desc = ""
-                if key in self.description_tree["config"]["new-interface"]["<ifname>"]:
-                    desc_entry = self.description_tree["config"]["new-interface"]["<ifname>"].get(key, {})
-                    if isinstance(desc_entry, dict) and "" in desc_entry:
-                        desc = desc_entry[""]
-                        
-                yield self.create_completion(key, "", display_meta=desc)
-            return
-        
-        # Add TWAMP command handling after a parameter value
-        elif len(parts) >= 2 and parts[0] == "twamp":
-            # After a parameter value, show remaining options
-            if len(parts) > 4:  # We have at least command + mode + param + value
-                partial = parts[-1] if not is_completing_command else ""
-                
-                # Reset to appropriate command tree
-                if "sender" in parts:
-                    subtree = self.command_tree["twamp"]["ipv4"]["sender"]
-                    descsubtree = self.description_tree["twamp"]["ipv4"]["sender"]
-                elif "responder" in parts:
-                    subtree = self.command_tree["twamp"]["ipv4"]["responder"]
-                    descsubtree = self.description_tree["twamp"]["ipv4"]["responder"]
-                    
-                # Show remaining parameters that match partial
-                for key in subtree.keys():
-                    if key not in used_params and not key.startswith('_'):
-                        if not partial or key.startswith(partial):
-                            desc = ""
-                            desc_entry = descsubtree.get(key, {})
-                            if isinstance(desc_entry, dict):
-                                desc = desc_entry.get("", "")
-                            elif isinstance(desc_entry, str):
-                                desc = desc_entry
-                            yield self.create_completion(key, partial, display_meta=desc)
-
-        # STANDARD COMPLETION LOGIC
-        # Now handle standard completions if we're not in a special case
-        if isinstance(subtree, dict):
-            # If we're completing a command (space after last word)
-            if is_completing_command:
-                # Show all options from current subtree, excluding used parameters
-                for key, value in subtree.items():
-                    # Skip already used parameters
-                    if new_interface_command and interface_name and key in used_params:
-                        continue
-                        
-                    desc = ""
-                    if isinstance(descsubtree, dict) and key in descsubtree:
-                        if isinstance(descsubtree[key], dict) and "" in descsubtree[key]:
-                            desc = descsubtree[key][""]
-                        elif isinstance(descsubtree[key], str):
-                            desc = descsubtree[key]
-                    
-                    yield self.create_completion(key, "", display_meta=desc)
-            else:
-                # Completing partial command (the last word in parts)
-                partial = parts[-1] if parts else ""
-                
-                # First try direct completion from the current subtree
-                completions_found = False
-                
-                for key, value in subtree.items():
-                    # Skip already used parameters
-                    if new_interface_command and interface_name and key in used_params:
-                        continue
-                        
-                    if key.startswith(partial):
-                        completions_found = True
-                        desc = ""
-                        if isinstance(descsubtree, dict) and key in descsubtree:
-                            desc_entry = descsubtree.get(key, {})
-                            if isinstance(desc_entry, dict):
-                                if "" in desc_entry:
-                                    desc = desc_entry[""]
-                                elif "_options" in desc_entry:
-                                    desc = f"Options: {', '.join(desc_entry['_options'])}"
-                            else:
-                                desc = desc_entry
-                        
-                        # Only complete what's missing
-                        yield self.create_completion(key, partial, display_meta=desc)
-                
-                # If we're in a config context, check for partial matches with top-level commands
-                if not completions_found and len(parts) == 1 and parts[0].startswith("con"):
-                    for key in self.command_tree.keys():
-                        if key.startswith(partial):
-                            completion_text = key[len(partial):]  # Only complete what's missing
-                            yield Completion(
-                                completion_text,
-                                start_position=0,  # Changed from -len(partial) to 0
-                                display=key,
-                                display_meta=command_descriptions.get(key, "")
-                            )
-                
-                # In the parameter completion section:
-                elif not completions_found and new_interface_command:
-                    # We're in a new-interface context, check parameter subtree
-                    param_subtree = self.command_tree["config"]["new-interface"]["<ifname>"]
-                    param_descs = self.description_tree["config"]["new-interface"]["<ifname>"]
-                    
-                    # Get the current partial word
-                    partial = parts[-1] if parts else ""
-                    
-                    for key in param_subtree.keys():
-                        # Skip already used parameters and special entries
-                        if key in used_params or key.startswith("_"):
-                            continue
-                            
-                        if key.startswith(partial):
-                            desc = ""
-                            if isinstance(param_descs, dict) and key in param_descs:
-                                desc_entry = param_descs.get(key, {})
-                                if isinstance(desc_entry, dict) and "" in desc_entry:
-                                    desc = desc_entry[""]
-                                    
-                            # Calculate what needs to be completed
-                            yield self.create_completion(key, partial, display_meta=desc)
 
     def get_description(self, desc_node, key):
         """Helper to safely get description text."""
         if isinstance(desc_node, dict) and key in desc_node:
             entry = desc_node[key]
             if isinstance(entry, dict):
-                return entry.get("", "") # Get main description if available
+                # Prefer the "" key for the main description
+                return entry.get("", "")
             elif isinstance(entry, str):
+                # Handle cases where the description is just a string
                 return entry
-        return ""
+        return "" # Return empty string if no description found
 
-    # Ensure create_completion is defined correctly
     def create_completion(self, text, partial="", display=None, display_meta=""):
-        completion_text = text[len(partial):] if partial else text
-        # Use -len(partial) for replacing the partial word
+        """Helper to create consistent completions, replacing the partial word."""
+        # Use -len(partial) to ensure the typed part is replaced
         return Completion(
-            text, # Use the full word for replacement
+            text, # The full word to complete with
             start_position=-len(partial),
             display=display if display is not None else text,
-            display_meta=display_meta
+            display_meta=str(display_meta) # Ensure meta is string
         )
+
+    def get_completions(self, document, complete_event):
+        text = document.text_before_cursor
+        parts = text.strip().split()
+        is_completing_command = text.endswith(' ') # True if the last char is a space
+
+        # --- 1. Top Level Completion ---
+        # ... (no changes needed here) ...
+        if not parts or (len(parts) == 1 and not is_completing_command):
+            partial = parts[0] if parts else ""
+            for key in self.command_tree.keys():
+                if key.startswith(partial):
+                    yield self.create_completion(
+                        key,
+                        partial,
+                        display_meta=command_descriptions.get(key, "")
+                    )
+            return
+
+        # --- 2. Context Detection & Parameter Tracking ---
+        current_command = parts[0]
+        used_params = set()
+        context = None
+        param_level_subtree = None
+        param_level_descsubtree = None
+        start_index_for_params = 0
+
+
+
+
+
+        # Determine context and parameter start index
+        if current_command == "config":
+            if len(parts) >= 2 and parts[1] == "new-interface":
+                context = 'config_new_if'
+                start_index_for_params = 3 # After config new-interface <name>
+                if len(parts) >= start_index_for_params:
+                    param_level_subtree = self.command_tree.get("config", {}).get("new-interface", {}).get("<ifname>", {})
+                    param_level_descsubtree = self.description_tree.get("config", {}).get("new-interface", {}).get("<ifname>", {})
+            elif len(parts) >= 2 and parts[1] == "interface":
+                 context = 'config_if'
+                 start_index_for_params = 3 # After config interface <name>
+                 if len(parts) >= start_index_for_params:
+                     param_level_subtree = self.command_tree.get("config", {}).get("interface", {}).get("<ifname>", {})
+                     param_level_descsubtree = self.description_tree.get("config", {}).get("interface", {}).get("<ifname>", {})
+
+        elif current_command == "twamp":
+            if len(parts) >= 3: # Need twamp <ipver> <mode>
+                ip_ver = parts[1] if len(parts) > 1 else None
+                mode = parts[2] if len(parts) > 2 else None
+                if ip_ver in ["ipv4", "ipv6"] and mode in ["sender", "responder"]:
+                    context = f'twamp_{mode}'
+                    start_index_for_params = 3
+                    param_level_subtree = self.command_tree.get("twamp", {}).get(ip_ver, {}).get(mode, {})
+                    param_level_descsubtree = self.description_tree.get("twamp", {}).get(ip_ver, {}).get(mode, {})
+
+        elif current_command == "register": # Added register context
+             if len(parts) >= 3 and parts[1] == "vmark" and parts[2] == "link-api":
+                 context = 'register_link_api'
+                 start_index_for_params = 3 # After register vmark link-api
+                 param_level_subtree = self.command_tree.get("register", {}).get("vmark", {}).get("link-api", {})
+                 param_level_descsubtree = self.description_tree.get("register", {}).get("vmark", {}).get("link-api", {})
+
+        # Scan for used parameters if in a parameter context
+        if context and param_level_subtree:
+            i = start_index_for_params
+            while i < len(parts):
+                current_part = parts[i]
+                # Check if it's a known parameter for the current context
+                if current_part in param_level_subtree and current_part in self.param_commands:
+                    used_params.add(current_part)
+                    # Check if it's a flag (no value expected)
+                    is_flag = current_part in ["pin", "do-not-fragment"] # Add other flags if any
+                    if not is_flag:
+                        if i + 1 < len(parts):
+                            i += 2 # Skip parameter and its value
+                        else:
+                            # Parameter typed, but no value yet (or partial value)
+                            i += 1
+                            break # Stop scanning, user might be typing the value
+                    else:
+                        i += 1 # Skip flag parameter
+                else:
+                    # Not a parameter or value we track in this context, move on
+                    # This could be a partially typed parameter or value
+                    i += 1
+
+        # --- 3. Navigate Tree & Generate Completions ---
+        subtree = self.command_tree
+        descsubtree = self.description_tree
+        navigate_parts = parts if is_completing_command else parts[:-1]
+        partial = "" if is_completing_command else parts[-1]
+        reset_to_param_level = False # Flag to track if navigation reset
+
+        for i, part in enumerate(navigate_parts):
+            # ... (standard navigation logic) ...
+            if not isinstance(subtree, dict): subtree = None; break
+            if part in subtree:
+                subtree = subtree[part]
+                descsubtree = descsubtree.get(part, {}) if isinstance(descsubtree, dict) else {}
+            # ... (dynamic interface name handling) ...
+            elif i == 2 and context == 'config_if' and "<ifname>" in self.command_tree.get("config", {}).get("interface", {}):
+                 subtree = self.command_tree["config"]["interface"]["<ifname>"]
+                 descsubtree = self.description_tree["config"]["interface"]["<ifname>"]
+            elif i == 2 and context == 'config_new_if' and "<ifname>" in self.command_tree.get("config", {}).get("new-interface", {}):
+                 subtree = self.command_tree["config"]["new-interface"]["<ifname>"]
+                 descsubtree = self.description_tree["config"]["new-interface"]["<ifname>"]
+            # --- MODIFIED: Handle navigation after parameter value/flag ---
+            elif i >= start_index_for_params and context and navigate_parts[i-1] in self.param_commands:
+                 # Reset to parameter level for subsequent completions
+                 subtree = param_level_subtree
+                 descsubtree = param_level_descsubtree
+                 reset_to_param_level = True # Set the flag
+                 break # Stop navigation here
+            else:
+                subtree = None; break
+
+        # --- 4. Determine Final Completions ---
+
+        # Case A: Completing command after a parameter value/flag (space typed)
+        # ... (no changes needed here, this part works) ...
+        just_finished_param_value_or_flag = False
+        if is_completing_command and context and len(navigate_parts) >= start_index_for_params:
+             # ... (logic to set just_finished_param_value_or_flag) ...
+             last_param_or_value = navigate_parts[-1]
+             if len(navigate_parts) > start_index_for_params and navigate_parts[-2] in self.param_commands:
+                  if navigate_parts[-2] in ["pin", "do-not-fragment"] or navigate_parts[-2] not in ["pin", "do-not-fragment"]:
+                      just_finished_param_value_or_flag = True
+             elif len(navigate_parts) == start_index_for_params and navigate_parts[-1] in ["pin", "do-not-fragment"]:
+                  just_finished_param_value_or_flag = True
+
+        if just_finished_param_value_or_flag and param_level_subtree:
+            for key in param_level_subtree.keys():
+                if key not in used_params and not key.startswith('_'):
+                    desc = self.get_description(param_level_descsubtree, key)
+                    yield self.create_completion(key, "", display_meta=desc)
+            return
+
+        # Case B: Standard completion OR Mid-word completion after parameter value/flag
+        if isinstance(subtree, dict):
+            # Special handling for dynamic interface names
+            # ... (no changes needed here) ...
+            if context == 'config_if' and len(navigate_parts) == 2:
+                 interfaces = self.get_available_interfaces()
+                 for if_name in interfaces:
+                     if if_name.startswith(partial):
+                         yield self.create_completion(if_name, partial, display_meta="Network Interface")
+                 return
+            elif context == 'config_new_if' and len(navigate_parts) == 3 and navigate_parts[2] == 'parent-interface':
+                 interfaces = self.get_available_interfaces()
+                 for if_name in interfaces:
+                     if if_name.startswith(partial):
+                         yield self.create_completion(if_name, partial, display_meta="Parent Interface")
+                 return
+
+            # General case: complete keys in the current subtree
+            for key in subtree.keys():
+                 # --- MODIFIED: Apply used_params filter if context was reset ---
+                 if reset_to_param_level and key in used_params:
+                     continue
+                 # Skip internal keys
+                 if key.startswith("_"):
+                     continue
+
+                 # Filter by partial word
+                 if not partial or key.startswith(partial):
+                     desc = self.get_description(descsubtree, key)
+                     # Add hint for parameters expecting values
+                     if key in self.param_commands and key not in ["pin", "do-not-fragment"]:
+                         param_details = descsubtree.get(key, {})
+                         options_hint = ""
+                         if isinstance(param_details, dict):
+                              options = param_details.get("_options")
+                              if options: options_hint = f" ({options[0]})"
+                         desc += options_hint
+
+                     yield self.create_completion(key, partial, display_meta=desc)
 
 # Build the command tree from the modules
 def build_command_tree_and_descs():
     """Build command tree and descriptions from modules"""
-    from cli.modules import show, config, system, twamp  # Add twamp import
-    
+    # Ensure all necessary modules are imported
+    from cli.modules import show, config, system, twamp, register
+
     # Import tree and descriptions from each module
     command_tree = {
         "show": show.get_command_tree(),
         "config": config.get_command_tree(),
         "system": system.get_command_tree(),
-        "twamp": twamp.get_command_tree(),  # Add twamp command tree
+        "twamp": twamp.get_command_tree(),
+        "register": register.get_command_tree() # Added register
     }
-    
+
     description_tree = {
         "show": show.descriptions,
         "config": config.descriptions,
         "system": system.descriptions,
-        "twamp": twamp.descriptions,  # Add twamp descriptions
+        "twamp": twamp.descriptions,
+        "register": register.descriptions # Added register
     }
-    
+
+    # Add top-level commands not covered by modules if needed
+    # e.g., command_tree['exit'] = None; description_tree['exit'] = "Exit the CLI"
+
     return command_tree, description_tree
 
 command_tree, description_tree = build_command_tree_and_descs()
@@ -516,7 +310,7 @@ def af_view_history(history, count=None):
 
 # Additional feature: Check the version
 def af_check_version():
-    VERSION = "0.3.3"  # Project version
+    VERSION = "0.3.4"  # Project version
     print(f"vMark-node version: {VERSION}")
 
 # Additional feature: Display hardware and OS information
@@ -529,79 +323,190 @@ def af_info():
     print("\n")
 
 # --- NEW HELPER FUNCTION for '?' ---
-def get_question_mark_help(text_before_question_mark, command_tree, description_tree, param_commands_list):
+def get_question_mark_help(text_before_question_mark, command_tree, description_tree, param_commands_list, command_descriptions_map):
     """Determines the help text for the '?' handler."""
-    parts = text_before_question_mark.strip().split()
+    text = text_before_question_mark.strip()
+    parts = text.split()
+    is_partial_word = not text_before_question_mark.endswith(' ') and text
+    partial = parts[-1] if is_partial_word else ""
+    # Use all parts for context detection and param tracking
+    context_parts = parts
+    # Use parts before partial/space for navigation
+    navigate_parts = parts if not is_partial_word else parts[:-1]
+
     current_node = command_tree
     current_desc_node = description_tree
     help_items = []
     used_params = set()
+    context = None
+    param_level_subtree = None
+    param_level_descsubtree = None
+    start_index_for_params = 0
 
-    # For empty input, show top-level commands
-    if not parts:
+    # --- 1. Handle Empty Input ---
+    if not context_parts: # Check context_parts here
         for key in command_tree.keys():
             if not key.startswith('_'):
-                help_items.append({
-                    'type': 'option',
-                    'display': key,
-                    'meta': command_descriptions.get(key, "")
-                })
+                # Filter by partial if present at top level
+                if not partial or key.startswith(partial):
+                    help_items.append({
+                        'type': 'option',
+                        'display': key,
+                        'meta': command_descriptions_map.get(key, description_tree.get(key, {}).get("", ""))
+                    })
         return help_items
 
-    # Special case for config new-interface without name
-    if parts == ["config", "new-interface"]:
-        help_items.append({
-            'type': 'option',
-            'display': '',  # Empty to just show description
-            'meta': 'New interface name'
-        })
-        return help_items
+    # --- 2. Determine Context & Parameter Tracking (using context_parts) ---
+    current_command = context_parts[0] if context_parts else ""
 
-    # Track if we're in a parameter context
-    is_twamp = parts[0] == "twamp" if parts else False
-    is_config_iface = len(parts) >= 3 and parts[0] == "config" and parts[1] == "new-interface"
-    is_config_if = len(parts) >= 2 and parts[0] == "config" and parts[1] == "interface"
+    # Determine context, parameter start index, and parameter-level nodes
+    if current_command == "config":
+        if len(context_parts) >= 2 and context_parts[1] == "new-interface":
+            context = 'config_new_if'
+            start_index_for_params = 3
+            param_level_subtree = command_tree.get("config", {}).get("new-interface", {}).get("<ifname>", {})
+            param_level_descsubtree = description_tree.get("config", {}).get("new-interface", {}).get("<ifname>", {})
+        elif len(context_parts) >= 2 and context_parts[1] == "interface":
+             context = 'config_if'
+             start_index_for_params = 3
+             param_level_subtree = command_tree.get("config", {}).get("interface", {}).get("<ifname>", {})
+             param_level_descsubtree = description_tree.get("config", {}).get("interface", {}).get("<ifname>", {})
 
-    # Collect ALL parameter-value pairs in the entire command
-    if is_twamp or is_config_iface:
-        # Scan the entire command to find all parameter-value pairs
-        i = 0
-        while i < len(parts):
-            if parts[i] in param_commands_list and i + 1 < len(parts):
-                used_params.add(parts[i])
-                i += 2  # Skip both parameter and value
+    elif current_command == "twamp":
+        if len(context_parts) >= 3:
+            ip_ver = context_parts[1] if len(context_parts) > 1 else None
+            mode = context_parts[2] if len(context_parts) > 2 else None
+            if ip_ver in ["ipv4", "ipv6"] and mode in ["sender", "responder"]:
+                context = f'twamp_{mode}'
+                start_index_for_params = 3
+                param_level_subtree = command_tree.get("twamp", {}).get(ip_ver, {}).get(mode, {})
+                param_level_descsubtree = description_tree.get("twamp", {}).get(ip_ver, {}).get(mode, {})
+
+    elif current_command == "register": # Added register context
+         if len(context_parts) >= 3 and context_parts[1] == "vmark" and context_parts[2] == "link-api":
+             context = 'register_link_api'
+             start_index_for_params = 3
+             param_level_subtree = command_tree.get("register", {}).get("vmark", {}).get("link-api", {})
+             param_level_descsubtree = description_tree.get("register", {}).get("vmark", {}).get("link-api", {})
+
+    # Scan for used parameters based on *all* context parts
+    if context and param_level_subtree:
+        i = start_index_for_params
+        while i < len(context_parts):
+            current_part = context_parts[i]
+            if current_part in param_level_subtree and current_part in param_commands_list:
+                used_params.add(current_part)
+                is_flag = current_part in ["pin", "do-not-fragment"]
+                if not is_flag:
+                    if i + 1 < len(context_parts):
+                        i += 2 # Skip parameter and its value
+                    else:
+                        i += 1 # Incomplete pair
+                        break
+                else:
+                    i += 1 # Skip flag parameter
             else:
                 i += 1
 
-    # Navigate through command tree for basic commands
-    for part in parts:
-        if isinstance(current_node, dict) and part in current_node:
-            current_node = current_node[part]
-            current_desc_node = current_desc_node.get(part, {})
-        else:
+    # --- 3. Navigate Tree (using navigate_parts) ---
+    final_nav_node = command_tree
+    final_nav_desc_node = description_tree
+    reset_to_param_level = False
+
+    for i, part in enumerate(navigate_parts):
+        if not isinstance(final_nav_node, dict):
+            final_nav_node = None # Invalid path
             break
 
-    # Reset to appropriate command level for TWAMP
-    if is_twamp and len(parts) >= 4:
-        mode = "sender" if "sender" in parts else "responder"
-        current_node = command_tree["twamp"]["ipv4"][mode]
-        current_desc_node = description_tree["twamp"]["ipv4"][mode]
-    # Reset for config new-interface with name
-    elif is_config_iface and len(parts) >= 3:
-        current_node = command_tree["config"]["new-interface"]["<ifname>"]
-        current_desc_node = description_tree["config"]["new-interface"]["<ifname>"]
+        if part in final_nav_node:
+            final_nav_node = final_nav_node[part]
+            final_nav_desc_node = final_nav_desc_node.get(part, {}) if isinstance(final_nav_desc_node, dict) else {}
+        # Handle dynamic interface names during navigation
+        elif i == 2 and context == 'config_if' and "<ifname>" in command_tree.get("config", {}).get("interface", {}):
+             final_nav_node = command_tree["config"]["interface"]["<ifname>"]
+             final_nav_desc_node = description_tree["config"]["interface"]["<ifname>"]
+        elif i == 2 and context == 'config_new_if' and "<ifname>" in command_tree.get("config", {}).get("new-interface", {}):
+             final_nav_node = command_tree["config"]["new-interface"]["<ifname>"]
+             final_nav_desc_node = description_tree["config"]["new-interface"]["<ifname>"]
+        # Check if we just navigated past a parameter value or flag
+        elif i >= start_index_for_params and context and navigate_parts[i-1] in param_commands_list:
+             # We are after a parameter value/flag. Reset to parameter level for next suggestions.
+             final_nav_node = param_level_subtree
+             final_nav_desc_node = param_level_descsubtree
+             reset_to_param_level = True # Mark that we reset
+             break # Stop navigation here, we want options at the parameter level
+        else:
+            final_nav_node = None # Invalid path element
+            break
 
-    # Generate help items for current node
-    if isinstance(current_node, dict):
-        for key, value in current_node.items():
-            if key not in used_params and not key.startswith('_'):
+    # --- 4. Generate Help Items ---
+
+    # Determine if the last *full* part entered was a parameter value or flag
+    # This helps decide if we should show remaining params even if typing partially
+    last_full_part_was_value_or_flag = False
+    if context and len(navigate_parts) >= start_index_for_params:
+        last_nav_part = navigate_parts[-1]
+        # Check if the second to last part was a parameter
+        if len(navigate_parts) > start_index_for_params and navigate_parts[-2] in param_commands_list:
+             # If it was a flag, or if it wasn't a flag (implying a value was just entered)
+             if navigate_parts[-2] in ["pin", "do-not-fragment"] or navigate_parts[-2] not in ["pin", "do-not-fragment"]:
+                 last_full_part_was_value_or_flag = True
+        # Handle case where only a flag was typed
+        elif len(navigate_parts) == start_index_for_params and navigate_parts[-1] in ["pin", "do-not-fragment"]:
+             last_full_part_was_value_or_flag = True
+
+    # If we reset to param level OR the last full part was a value/flag, use param_level_subtree
+    current_node_for_help = final_nav_node
+    current_desc_node_for_help = final_nav_desc_node
+    use_param_filtering = False
+
+    if reset_to_param_level or last_full_part_was_value_or_flag:
+         if param_level_subtree:
+             current_node_for_help = param_level_subtree
+             current_desc_node_for_help = param_level_descsubtree
+             use_param_filtering = True # Apply used_params filter
+
+    # Generate help from the determined node
+    if isinstance(current_node_for_help, dict):
+        # Special handling for dynamic interface names if appropriate
+        if context == 'config_if' and len(navigate_parts) == 2: # Right after 'config interface'
+             temp_completer = VMarkCompleter(command_tree, description_tree)
+             interfaces = temp_completer.get_available_interfaces()
+             for if_name in interfaces:
+                 if if_name.startswith(partial):
+                     help_items.append({'type': 'option', 'display': if_name, 'meta': "Network Interface"})
+             return help_items
+        elif context == 'config_new_if' and len(navigate_parts) == 3 and navigate_parts[2] == 'parent-interface': # After 'parent-interface' param name
+             temp_completer = VMarkCompleter(command_tree, description_tree)
+             interfaces = temp_completer.get_available_interfaces()
+             for if_name in interfaces:
+                 if if_name.startswith(partial):
+                     help_items.append({'type': 'option', 'display': if_name, 'meta': "Parent Interface"})
+             return help_items
+
+        # General case: Iterate through keys
+        for key in current_node_for_help.keys():
+            # Skip internal keys
+            if key.startswith('_'):
+                continue
+            # Apply used_params filter if required
+            if use_param_filtering and key in used_params:
+                continue
+
+            # Filter based on partial word
+            if not partial or key.startswith(partial):
+                # Get description
                 desc = ""
-                if isinstance(current_desc_node, dict) and key in current_desc_node:
-                    entry = current_desc_node[key]
+                if isinstance(current_desc_node_for_help, dict) and key in current_desc_node_for_help:
+                    entry = current_desc_node_for_help[key]
                     if isinstance(entry, dict):
-                        desc = entry.get("", "")
+                        desc = entry.get("", "") # Prefer "" key
+                        options = entry.get("_options")
+                        if options:
+                            desc += f" ({options[0]})"
                     elif isinstance(entry, str):
                         desc = entry
+
                 help_items.append({'type': 'option', 'display': key, 'meta': desc})
 
     return help_items
@@ -609,10 +514,10 @@ def get_question_mark_help(text_before_question_mark, command_tree, description_
 def start_cli():
     command_tree, description_tree = build_command_tree_and_descs()
     # Get the list of known parameter commands (needed for the helper)
-    # You might need to instantiate VMarkCompleter once to get this list,
-    # or define the list globally/pass it differently.
     temp_completer_for_params = VMarkCompleter(command_tree, description_tree)
     param_commands_list = temp_completer_for_params.param_commands
+    # Make sure the global command_descriptions map is accessible
+    global command_descriptions
 
     # Create key bindings
     bindings = KeyBindings()
@@ -621,7 +526,7 @@ def start_cli():
     def _(event):
         buffer = event.app.current_buffer
         original_text = buffer.text
-        text_before_question_mark = original_text.rstrip(' ?')
+        text_before_question_mark = original_text.rstrip('?') # Corrected rstrip
 
         # --- Get Help Items ---
         try:
@@ -629,7 +534,8 @@ def start_cli():
                 text_before_question_mark,
                 command_tree,
                 description_tree,
-                param_commands_list
+                param_commands_list,
+                command_descriptions # Pass the map here
             )
         except Exception as e:
             # Using print_formatted_text for errors too, to avoid interfering
@@ -646,38 +552,48 @@ def start_cli():
 
         # 2. Help content (with spacing)
         if help_items:
-            is_format_hint = help_items[0]['type'] == 'format'
+            # Check if the first item indicates a format hint (adjust if needed)
+            is_format_hint = False # Default
+            if help_items[0].get('type') == 'format': # Safer check
+                 is_format_hint = True
+
             output_fragments.append(('', "\n")) # Blank line before help
 
             if is_format_hint:
                 item = help_items[0]
-                output_fragments.append(('', f"Help for '{item['param']}']:\n"))
-                output_fragments.append(('', f"  Format: {item['hint']}\n"))
-                if item['meta']:
+                output_fragments.append(('', f"Help for '{item.get('param', '')}']:\n")) # Safer get
+                output_fragments.append(('', f"  Format: {item.get('hint', '')}\n"))
+                if item.get('meta'):
                      output_fragments.append(('', f"  Description: {item['meta']}\n"))
             else:
                 output_fragments.append(('', "Possible completions:\n"))
+                # Find max display length for alignment
+                max_len = 0
                 for item in help_items:
-                    if item['type'] == 'option':
-                        display_text = item['display']
-                        meta_text = str(item['meta'])
-                        output_fragments.append(('', f"  {display_text:<20} {meta_text}\n"))
+                    if item.get('type') == 'option':
+                        max_len = max(max_len, len(item.get('display', '')))
+
+                for item in help_items:
+                    if item.get('type') == 'option':
+                        display_text = item.get('display', '')
+                        meta_text = str(item.get('meta', ''))
+                        # Simple alignment
+                        output_fragments.append(('', f"  {display_text:<{max_len + 2}} {meta_text}\n"))
         else:
             output_fragments.append(('', "\n")) # Blank line before message
-            output_fragments.append(('', f"No further options available for: {text_before_question_mark}\n"))
+            # Use text_before_question_mark.strip() for a cleaner message
+            output_fragments.append(('', f"No further options available for: '{text_before_question_mark.strip()}'\n"))
 
         # Add a final blank line for spacing before the prompt redraws
         output_fragments.append(('', "\n"))
 
         # --- Print all collected text above the prompt ---
-        # This function handles clearing space, printing, and redrawing the prompt below
         print_formatted_text(FormattedText(output_fragments), end='')
 
         # --- Restore buffer ---
-        # Add a space after the command when restoring the buffer
-        buffer.text = text_before_question_mark + " "  # Add space here
-        buffer.cursor_position = len(buffer.text)  # Move cursor after the space
-        # No invalidate needed, print_formatted_text handles the redraw.
+        # Restore text *before* the '?' without adding extra space automatically
+        buffer.text = text_before_question_mark
+        buffer.cursor_position = len(buffer.text)
 
     # Create the PromptSession - STILL USES VMarkCompleter FOR TAB
     session = PromptSession(

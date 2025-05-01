@@ -1,6 +1,6 @@
 import subprocess
 from pyroute2 import IPDB
-from cli.modules import config, system  # Import config and system modules
+from cli.modules import config, system, register  # Import config, system, and register modules
 
 descriptions = {
     "tree": {
@@ -9,12 +9,14 @@ descriptions = {
         "config": "Display only the 'config' tree",
         "system": "Display only the 'system' tree",
         "twamp": "Display only the 'twamp' tree",
+        "register": "Display only the 'register' tree",  # Added register
         "details": {
             "": "Display entire command tree with descriptions",
             "show": "Display only the 'show' tree with descriptions",
             "config": "Display only the 'config' tree with descriptions",
             "system": "Display only the 'system' tree with descriptions",
             "twamp": "Display only the 'twamp' tree with descriptions",
+            "register": "Display only the 'register' tree with descriptions", # Added register
         },
     },
     "interfaces": {

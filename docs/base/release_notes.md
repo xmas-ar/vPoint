@@ -1,5 +1,23 @@
 # Release Notes
 
+Version 0.3.4: vMark Integration + logging.
+---------------------------------
+
+- **Remote Management via vMark:** Introduced the ability to register vMark-node with a central vMark server, enabling remote management and orchestration capabilities.
+    *   *Note:* vMark-node can still operate in standalone mode. The vMark server project is also intended to be open-source (Apache 2.0).
+- **New Registration Commands:** Added CLI commands under `register vmark` to manage the registration process:
+```
+xmas/rocky-dw1@vMark-node> show tree register
+vmark
+    └── link-api
+        ├── listen-ip
+        ├── pin
+        └── port
+```
+- **Registration State:** Once registered (refer to vMark documentation for the procedure), vMark-node stores connection details in `~/.vmark/register.json`. The vMark-node API server requires this file to be present on startup to listen for connections from the vMark server. Deleting this file unlinks the node.
+- Error handling for vMark-id mismatch.
+- Added logging functionality, file saved in `~/.vmark/api.log` .
+
 Version 0.3.2/3: workflow update.
 -------------------------
 
