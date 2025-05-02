@@ -29,5 +29,9 @@ def get_command_tree():
     command_tree = build_tree_from_descriptions(descriptions)
     return command_tree
 
+def get_descriptions():
+    """Return the description dictionary."""
+    return descriptions
+
 def handle(args, username, hostname):
     return f"System command executed: {' '.join(args)}"

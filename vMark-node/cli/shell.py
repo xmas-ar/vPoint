@@ -278,11 +278,11 @@ def build_command_tree_and_descs():
     }
 
     description_tree = {
-        "show": show.descriptions,
-        "config": config.descriptions,
-        "system": system.descriptions,
-        "twamp": twamp.descriptions,
-        "register": register.descriptions # Added register
+        "show": show.get_descriptions(),         # Call get_descriptions()
+        "config": config.get_descriptions(),       # Call get_descriptions()
+        "system": system.get_descriptions(),       # Call get_descriptions()
+        "twamp": twamp.get_descriptions(),        # Call get_descriptions()
+        "register": register.get_descriptions()    # Already calling get_descriptions()
     }
 
     # Add top-level commands not covered by modules if needed
@@ -310,7 +310,7 @@ def af_view_history(history, count=None):
 
 # Additional feature: Check the version
 def af_check_version():
-    VERSION = "0.3.4"  # Project version
+    VERSION = "0.3.5"  # Project version
     print(f"vMark-node version: {VERSION}")
 
 # Additional feature: Display hardware and OS information

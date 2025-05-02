@@ -185,6 +185,10 @@ def get_command_tree():
     
     return command_tree
 
+def get_descriptions():
+    """Return the description dictionary."""
+    return descriptions
+
 def run_with_sudo(command):
     try:
         result = subprocess.run(

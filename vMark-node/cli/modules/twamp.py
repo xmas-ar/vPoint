@@ -268,6 +268,10 @@ def get_command_tree():
     build_tree(command_tree, result)
     return result
 
+def get_descriptions():
+    """Return the description dictionary."""
+    return descriptions
+
 def handle(args, username, hostname):
     """Handle TWAMP commands"""
     prompt = f"{username}/{hostname}@vMark-node> "

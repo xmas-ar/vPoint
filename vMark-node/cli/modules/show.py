@@ -77,6 +77,10 @@ def get_command_tree():
     
     return command_tree
 
+def get_descriptions():
+    """Return the description dictionary."""
+    return descriptions
+
 # Fix the print_tree function to reduce excessive whitespace
 
 def print_tree(d, prefix="", is_last=True, path=None):
