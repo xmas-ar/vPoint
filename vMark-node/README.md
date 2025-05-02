@@ -73,7 +73,7 @@ ___
 
 ```
 pip install vmark-node
-vmark-node
+~/.local/bin/vmark-nod
 ```
 ___
 
