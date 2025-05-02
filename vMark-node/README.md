@@ -79,7 +79,7 @@ ___
 
 ### 🔄 Running as a Background Service (Production)
 
-To ensure `vmark-node` stays running in the background (e.g., to keep the API server accessible by `vMark`), you can use **`systemd`** (recommended for Linux servers) or **`supervisord`**.
+To ensure `vmark-node` stays running in the background (e.g., to keep the API server accessible by `vMark`), you can use **`systemd`** or **`tmux`**.
 
 ___
 
