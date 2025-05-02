@@ -63,7 +63,7 @@ ___
 ## Quick Install
 
 ```
-gh repo clone https://github.com/xmas-ar/vMark-node.git
+git clone https://github.com/xmas-ar/vMark-node
 cd vMark-node/vMark-node
 pip3 install -r requirements.txt
 python3 main.py
