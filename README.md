@@ -130,7 +130,7 @@ sudo journalctl -u vmark-node -f
 1. **Install supervisord:**
 ```
 pip install supervisor
-echo_supervisord_conf > supervisord.conf
+echo_supervisord_conf > supervisord.conf ## you might need to 'find ~/.local -name echo_supervisord_conf'
 ```
 2. **Edit supervisord.conf:**
 Add at the bottom:
