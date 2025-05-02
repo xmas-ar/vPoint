@@ -125,25 +125,25 @@ sudo journalctl -u vmark-node -f
 
 ---
 
-### ✅ Option 2: supervisord (Cross-platform alternative)
+### ✅ Option 2: TMUX (Simpler option)
 
-1. **Install supervisord:**
+1. **Install tmux and launch vmark (after installed with pip):**
+
 ```
-pip install supervisor
-echo_supervisord_conf > supervisord.conf
+sudo apt install tmux
+tmux
+vmark-node
 ```
-2. **Edit supervisord.conf:**
-Add at the bottom:
+
+2. **Then press:**
+
 ```
-[program:vmark-node]
-command=vmark-node
-autostart=true
-autorestart=true
-stderr_logfile=/var/log/vmark-node.err.log
-stdout_logfile=/var/log/vmark-node.out.log
+Ctrl + B, then D
 ```
-3. **Start supervisord:**
+
+👉 That detaches the session, leaving vmark-node running.
+
+3. **To resume later:**
 ```
-supervisord -c supervisord.conf
+tmux attach
 ```
-To manage the process, you can use supervisorctl or add it to your system startup routines.
