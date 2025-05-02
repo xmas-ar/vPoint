@@ -1,9 +1,10 @@
 # Release Notes
 
-Version 0.3.5: Bug fixing.
+Version 0.3.5/6: Bug fixing.
 ---------------------------------
 
 - Bug fixes in the description tree.
+- Adding requirements.
 
 Version 0.3.4: vMark Integration + logging.
 ---------------------------------

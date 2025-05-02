@@ -1,3 +1,3 @@
-prompt_toolkit
-pyroute2
-ethtool
+prompt_toolkit>=3.0.0,<4.0.0
+pyroute2>=0.6.9,<0.7.0
+ethtool==0.15
