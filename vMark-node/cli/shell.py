@@ -7,6 +7,7 @@ from prompt_toolkit.shortcuts import print_formatted_text
 from cli.dispatcher import dispatch
 from cli.modules import show, config, system, twamp, register  # Add register import
 from cli.modules.config import handle  # Change any direct imports
+from .modules.register import initialize_api_on_startup # Add this import
 import os
 import getpass
 import platform
@@ -310,7 +311,7 @@ def af_view_history(history, count=None):
 
 # Additional feature: Check the version
 def af_check_version():
-    VERSION = "0.3.6"  # Project version
+    VERSION = "0.3.7"  # Project version
     print(f"vMark-node version: {VERSION}")
 
 # Additional feature: Display hardware and OS information
@@ -512,6 +513,12 @@ def get_question_mark_help(text_before_question_mark, command_tree, description_
     return help_items
 
 def start_cli():
+    """Initialize and start the command-line interface."""
+    # --- Add this line ---
+    initialize_api_on_startup() 
+    # ---------------------
+
+    # Build command tree and descriptions
     command_tree, description_tree = build_command_tree_and_descs()
     # Get the list of known parameter commands (needed for the helper)
     temp_completer_for_params = VMarkCompleter(command_tree, description_tree)

@@ -1,6 +1,6 @@
 # Release Notes
 
-Version 0.3.5/6: Bug fixing.
+Version 0.3.5/6/7: Bug fixing.
 ---------------------------------
 
 - Bug fixes in the description tree.
