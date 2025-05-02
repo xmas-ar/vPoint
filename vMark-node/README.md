@@ -14,19 +14,17 @@
 - Remote Management via vMark. (v0.3.4)
 
 **🔧 Feature roadmap:**
- - web GUI.
- - Docker version.
- - Ethernet OAM.
- - L2TP.
- - MEF3 Services deployment.
- - Automated EVC-WAN failover.
- - Loopback testing with automatic timeout.
- - RFC2544 testing and reflector.
- - open-BFDD implementation for service assurance and OAM.
+ - Ethernet OAM. (IEEE 802.1ag / Y.1731)
+ - Timing protocols support (ITU-T G.8262 Sync-E and IEEE 1588v2)
+ - MEF3 Services deployment with 100% L2 transparency (l2tp).
+ - Automated MEF3 Service WAN failover.
+ - Remote loop testing with automatic timeout.
+ - RFC2544 Service Activation testing and reflector.
+ - open-BFDD implementation for service session assurance.
  - fiber-interface management and optic levels monitoring.
- - Enable API-operated dispatcher.
  - SNMP Support.
  - Multi-vendor IPSec Tunnel support.
+ - VXLAN Tunneling.
 
 <img src="https://github.com/user-attachments/assets/f03e03f7-961f-4c25-8ed4-d95991735c05" alt="xxx">
 <h2 align="center"></h2>
