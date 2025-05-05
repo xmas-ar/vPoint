@@ -5,7 +5,6 @@
 
 
 
-https://www.linkedin.com/company/pathgate
 **🚀 Features:**
 - Modular tree-style CLI with tab autocompletions and '?' helper.
 - Shell/Dispatcher/Modules/Plugins architecture.
