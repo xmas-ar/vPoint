@@ -1,8 +1,11 @@
 <h1 align="center">vMark-node by Pathgate</h1>
 <h2 align="center">World's first open source Ethernet software-based demarcation NID.</h2>
 
-<p align="center">Latest version: 0.3.7 / Release notes: <a href="https://github.com/xmas-ar/vMark-node/blob/public/docs/base/release_notes.md">Link</a> </p>
+<p align="center">Latest version: 0.3.7 / Release notes: <a href="https://github.com/xmas-ar/vMark-node/blob/public/docs/base/release_notes.md">Link</a> / News at: <a href="https://github.com/xmas-ar/vMark-node/blob/public/docs/base/release_notes.md">LinkedIn</a> </p>
 
+
+
+https://www.linkedin.com/company/pathgate
 **🚀 Features:**
 - Modular tree-style CLI with tab autocompletions and '?' helper.
 - Shell/Dispatcher/Modules/Plugins architecture.
