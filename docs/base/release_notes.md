@@ -1,5 +1,11 @@
 # Release Notes
 
+Version 0.3.8: Remote TWAMP Benchmark.
+---------------------------------
+
+- Twamp sessions can now be remotely triggered via vmark API.
+- Improved output for TWAMP benchmarks.
+
 Version 0.3.5/6/7: Bug fixing.
 ---------------------------------
 

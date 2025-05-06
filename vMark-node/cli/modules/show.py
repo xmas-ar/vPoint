@@ -217,29 +217,6 @@ def handle(args, username, hostname):
                 return f"{prompt}Unknown subcommand for 'tree details': {' '.join(args[2:])}"
         else:
             return f"{prompt}Unknown subcommand for 'tree': {' '.join(args[1:])}"
-            
-    elif args[0] == "tree":
-        if len(args) == 1:
-            # Show the entire command tree
-            return print_tree(command_tree)
-        elif len(args) == 2 and args[1] == "details":
-            # Show the command tree with descriptions
-            return print_tree_with_descriptions(command_tree, description_tree)
-        else:
-            # Show specific subtree
-            subtree = command_tree
-            for part in args[1:]:
-                if part in subtree:
-                    subtree = subtree[part]
-                else:
-                    return f"{prompt}Invalid path: {' '.join(args[1:])}"
-            
-            # Only print if we have a valid subtree
-            if isinstance(subtree, dict):
-                return print_tree(subtree, path=args[1:])
-            else:
-                return f"{prompt}No subtree available for: {' '.join(args[1:])}"
-
     # Rest of the handle function
 
     if args[0] == "interfaces":

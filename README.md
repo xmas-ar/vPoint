@@ -1,9 +1,7 @@
 <h1 align="center">vMark-node by Pathgate</h1>
 <h2 align="center">World's first open source Ethernet software-based demarcation NID.</h2>
 
-<p align="center">Latest version: 0.3.7 / Release notes: <a href="https://github.com/xmas-ar/vMark-node/blob/public/docs/base/release_notes.md">Link</a> / News at: <a href="https://www.linkedin.com/company/pathgate">LinkedIn</a> </p>
-
-
+<p align="center">Latest version: 0.3.8 / Release notes: <a href="https://github.com/xmas-ar/vMark-node/blob/public/docs/base/release_notes.md">Link</a> / News at: <a href="https://www.linkedin.com/company/pathgate">LinkedIn</a> </p></p>
 
 **🚀 Features:**
 - Modular tree-style CLI with tab autocompletions and '?' helper.
@@ -11,7 +9,7 @@
 - Complete **Interface management**.
 - GPLv3 License.
 - Add & delete sub.interfaces (**QinQ** / dual-tags supported) (v0.2)
-- **TWAMP** Light implementation for End-to-End L3 tests. (**ipv4 & ipv6, sender/responder modes**). (v0.3)
+- **TWAMP** (RFC5357) implementation for End-to-End L3 tests. (**ipv4 & ipv6, sender/responder modes**). (v0.3)
 - Pypi (pip) packaging. (v0.3.1)
 - Remote Management via vMark. (v0.3.4)
 
@@ -71,7 +69,7 @@ pip3 install -r requirements.txt
 python3 main.py
 ```
 ___
-## PIP Install
+## PIP Install (recommended)
 
 ```
 pip install vmark-node

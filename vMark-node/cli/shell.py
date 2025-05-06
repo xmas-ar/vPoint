@@ -8,6 +8,7 @@ from cli.dispatcher import dispatch
 from cli.modules import show, config, system, twamp, register  # Add register import
 from cli.modules.config import handle  # Change any direct imports
 from .modules.register import initialize_api_on_startup # Add this import
+import subprocess
 import os
 import getpass
 import platform
@@ -112,10 +113,6 @@ class VMarkCompleter(Completer):
         param_level_descsubtree = None
         start_index_for_params = 0
 
-
-
-
-
         # Determine context and parameter start index
         if current_command == "config":
             if len(parts) >= 2 and parts[1] == "new-interface":
@@ -175,24 +172,58 @@ class VMarkCompleter(Completer):
         # --- 3. Navigate Tree & Generate Completions ---
         subtree = self.command_tree
         descsubtree = self.description_tree
+        # Use all parts for navigation check, but partial depends on space
         navigate_parts = parts if is_completing_command else parts[:-1]
         partial = "" if is_completing_command else parts[-1]
         reset_to_param_level = False # Flag to track if navigation reset
 
+        # --- Special Handling for 'config interface' ---
+        if len(parts) == 2 and parts[0] == "config" and parts[1] == "interface":
+            interface_node = self.command_tree.get("config", {}).get("interface", {})
+            if isinstance(interface_node, dict):
+                # Case 1: User typed 'config interface ' (space) -> show all interfaces
+                if is_completing_command:
+                    for if_name in interface_node.keys():
+                        # Exclude the template key and internal keys
+                        if if_name != "<ifname>" and not if_name.startswith("_"):
+                            yield self.create_completion(if_name, "", display_meta="Network Interface")
+                    return # Completion handled for this specific case
+
+                # Case 2: User typing 'config interface partial...' -> filter interfaces
+                else: # not is_completing_command
+                    partial_if_name = parts[1] # This is the partial interface name being typed
+                    for if_name in interface_node.keys():
+                        if if_name != "<ifname>" and not if_name.startswith("_") and if_name.startswith(partial_if_name):
+                            yield self.create_completion(if_name, partial_if_name, display_meta="Network Interface")
+                    return # Completion handled for this specific case
+        # --- End Special Handling ---
+
+        # --- Continue with existing navigation logic ---
         for i, part in enumerate(navigate_parts):
-            # ... (standard navigation logic) ...
             if not isinstance(subtree, dict): subtree = None; break
+
+            # --- Standard navigation using actual keys (including real interface names) ---
             if part in subtree:
                 subtree = subtree[part]
                 descsubtree = descsubtree.get(part, {}) if isinstance(descsubtree, dict) else {}
-            # ... (dynamic interface name handling) ...
+            # --- REINSTATE/REFINE TEMPLATE HANDLING for placeholder values ---
             elif i == 2 and context == 'config_if' and "<ifname>" in self.command_tree.get("config", {}).get("interface", {}):
+                 # If 'part' (e.g., 'ens160') wasn't found directly, but we are at the ifname position
+                 # Use the template subtree for subsequent parameter completions
                  subtree = self.command_tree["config"]["interface"]["<ifname>"]
                  descsubtree = self.description_tree["config"]["interface"]["<ifname>"]
+                 # We've consumed the interface name 'part', stop navigation here to complete params
+                 break # Stop navigating after consuming the placeholder value
             elif i == 2 and context == 'config_new_if' and "<ifname>" in self.command_tree.get("config", {}).get("new-interface", {}):
+                 # Same logic for new-interface: 'part' is the user-typed name (e.g., 'asd')
                  subtree = self.command_tree["config"]["new-interface"]["<ifname>"]
                  descsubtree = self.description_tree["config"]["new-interface"]["<ifname>"]
-            # --- MODIFIED: Handle navigation after parameter value/flag ---
+                 # Stop navigation after consuming the placeholder value ('asd')
+                 # The 'subtree' now correctly points to the parameters under <ifname>
+                 break
+            # --- END TEMPLATE HANDLING ---
+
+            # --- Handle navigation after parameter value/flag ---
             elif i >= start_index_for_params and context and navigate_parts[i-1] in self.param_commands:
                  # Reset to parameter level for subsequent completions
                  subtree = param_level_subtree
@@ -200,53 +231,57 @@ class VMarkCompleter(Completer):
                  reset_to_param_level = True # Set the flag
                  break # Stop navigation here
             else:
-                subtree = None; break
+                subtree = None; break # Invalid part in the command path
 
         # --- 4. Determine Final Completions ---
-
+        # ... (rest of the completion logic remains largely the same) ...
         # Case A: Completing command after a parameter value/flag (space typed)
-        # ... (no changes needed here, this part works) ...
         just_finished_param_value_or_flag = False
+        # ... (existing logic to determine just_finished_param_value_or_flag) ...
         if is_completing_command and context and len(navigate_parts) >= start_index_for_params:
-             # ... (logic to set just_finished_param_value_or_flag) ...
              last_param_or_value = navigate_parts[-1]
+             # Check if the second to last part was a parameter keyword
              if len(navigate_parts) > start_index_for_params and navigate_parts[-2] in self.param_commands:
-                  if navigate_parts[-2] in ["pin", "do-not-fragment"] or navigate_parts[-2] not in ["pin", "do-not-fragment"]:
+                  # Check if it was a flag OR if it wasn't a flag (implying a value was just entered)
+                  is_flag = navigate_parts[-2] in ["pin", "do-not-fragment"]
+                  if is_flag or not is_flag:
                       just_finished_param_value_or_flag = True
+             # Handle case where only a flag was typed right after the command/mode
              elif len(navigate_parts) == start_index_for_params and navigate_parts[-1] in ["pin", "do-not-fragment"]:
                   just_finished_param_value_or_flag = True
 
+        # --- NEW: Special handling for completing the VALUE of parent-interface ---
+        # Check if the last fully navigated part was 'parent-interface' in the correct context
+        if context == 'config_new_if' and navigate_parts and navigate_parts[-1] == 'parent-interface':
+            # User is typing the value for parent-interface (or just typed space after it)
+            interfaces = self.get_available_interfaces()
+            for if_name in interfaces:
+                if if_name.startswith(partial): # partial is "" if space was typed
+                    yield self.create_completion(if_name, partial, display_meta="Parent Interface")
+            return # Value completion handled
+        # --- END NEW Special Handling ---
+
         if just_finished_param_value_or_flag and param_level_subtree:
+            # Make sure not to suggest parent-interface again if we just completed its value
+            # (The used_params check should handle this if scanning is correct)
             for key in param_level_subtree.keys():
                 if key not in used_params and not key.startswith('_'):
+                    # Don't suggest parent-interface itself if the previous part was parent-interface
+                    if navigate_parts and navigate_parts[-1] == 'parent-interface' and key == 'parent-interface':
+                         continue
                     desc = self.get_description(param_level_descsubtree, key)
                     yield self.create_completion(key, "", display_meta=desc)
             return
 
         # Case B: Standard completion OR Mid-word completion after parameter value/flag
         if isinstance(subtree, dict):
-            # Special handling for dynamic interface names
-            # ... (no changes needed here) ...
-            if context == 'config_if' and len(navigate_parts) == 2:
-                 interfaces = self.get_available_interfaces()
-                 for if_name in interfaces:
-                     if if_name.startswith(partial):
-                         yield self.create_completion(if_name, partial, display_meta="Network Interface")
-                 return
-            elif context == 'config_new_if' and len(navigate_parts) == 3 and navigate_parts[2] == 'parent-interface':
-                 interfaces = self.get_available_interfaces()
-                 for if_name in interfaces:
-                     if if_name.startswith(partial):
-                         yield self.create_completion(if_name, partial, display_meta="Parent Interface")
-                 return
-
             # General case: complete keys in the current subtree
             for key in subtree.keys():
                  # --- MODIFIED: Apply used_params filter if context was reset ---
                  if reset_to_param_level and key in used_params:
                      continue
-                 # Skip internal keys
-                 if key.startswith("_"):
+                 # Skip internal keys and the template key if real interfaces are present
+                 if key.startswith("_") or key == "<ifname>":
                      continue
 
                  # Filter by partial word
@@ -311,7 +346,7 @@ def af_view_history(history, count=None):
 
 # Additional feature: Check the version
 def af_check_version():
-    VERSION = "0.3.7"  # Project version
+    VERSION = "0.3.8"  # Project version
     print(f"vMark-node version: {VERSION}")
 
 # Additional feature: Display hardware and OS information
@@ -414,25 +449,77 @@ def get_question_mark_help(text_before_question_mark, command_tree, description_
     final_nav_desc_node = description_tree
     reset_to_param_level = False
 
+    # --- Special Handling for 'config interface ?' ---
+    if len(navigate_parts) == 2 and navigate_parts[0] == "config" and navigate_parts[1] == "interface":
+        interface_node = command_tree.get("config", {}).get("interface", {})
+        interface_desc_node = description_tree.get("config", {}).get("interface", {})
+        if isinstance(interface_node, dict):
+            for if_name in interface_node.keys():
+                if if_name != "<ifname>" and not if_name.startswith("_"):
+                    if not partial or if_name.startswith(partial): # Filter by partial word if any
+                        # Use fallback description from template
+                        desc = interface_desc_node.get("<ifname>", {}).get("", "Network Interface")
+                        help_items.append({'type': 'option', 'display': if_name, 'meta': desc})
+            return help_items # Help handled for this specific case
+    # --- End Special Handling ---
+
+    # --- Continue with existing navigation logic ---
     for i, part in enumerate(navigate_parts):
         if not isinstance(final_nav_node, dict):
             final_nav_node = None # Invalid path
             break
 
+        # --- Standard navigation using actual keys ---
         if part in final_nav_node:
+            # --- FIX: Use template for description node if navigating into dynamic name ---
+            # Determine if 'part' is a dynamic interface name at the expected position
+            is_dynamic_if_name_pos = (i == 2 and context == 'config_if') or \
+                                     (i == 2 and context == 'config_new_if') or \
+                                     (i == 1 and context_parts[0] == 'config' and context_parts[1] == 'delete-interface') # Add delete context
+
+            # Check if the corresponding template exists in the description tree
+            template_desc_node = None
+            if is_dynamic_if_name_pos:
+                 base_cmd = context_parts[0] # e.g., 'config'
+                 sub_cmd = context_parts[1] # e.g., 'interface' or 'new-interface'
+                 if base_cmd in description_tree and sub_cmd in description_tree[base_cmd] and "<ifname>" in description_tree[base_cmd][sub_cmd]:
+                      template_desc_node = description_tree[base_cmd][sub_cmd]["<ifname>"]
+
+            if template_desc_node:
+                 # If navigating into 'ens160' or 'asd1', use the <ifname> description node
+                 # for the *next* level of descriptions (mtu, speed, etc.)
+                 final_nav_desc_node = template_desc_node
+            elif isinstance(final_nav_desc_node, dict):
+                 # Otherwise, navigate normally within descriptions using the current 'part'
+                 final_nav_desc_node = final_nav_desc_node.get(part, {})
+            else:
+                 final_nav_desc_node = {} # Reset if not a dict
+
+            # Navigate command tree normally using the current 'part'
             final_nav_node = final_nav_node[part]
-            final_nav_desc_node = final_nav_desc_node.get(part, {}) if isinstance(final_nav_desc_node, dict) else {}
-        # Handle dynamic interface names during navigation
+            # --- END FIX ---
+
+        # --- REINSTATE/REFINE TEMPLATE HANDLING for placeholder values ---
+        # This block handles cases where 'part' itself is NOT in final_nav_node
+        # but corresponds to a placeholder position.
         elif i == 2 and context == 'config_if' and "<ifname>" in command_tree.get("config", {}).get("interface", {}):
+             # Use the template subtree for subsequent parameter help
              final_nav_node = command_tree["config"]["interface"]["<ifname>"]
              final_nav_desc_node = description_tree["config"]["interface"]["<ifname>"]
+             # Stop navigation after consuming the placeholder value
+             break
         elif i == 2 and context == 'config_new_if' and "<ifname>" in command_tree.get("config", {}).get("new-interface", {}):
+             # Same logic for new-interface: 'part' is the user-typed name (e.g., 'asd')
              final_nav_node = command_tree["config"]["new-interface"]["<ifname>"]
              final_nav_desc_node = description_tree["config"]["new-interface"]["<ifname>"]
+             # Stop navigation after consuming the placeholder value ('asd')
+             break
+        # --- END TEMPLATE HANDLING ---
+
         # Check if we just navigated past a parameter value or flag
         elif i >= start_index_for_params and context and navigate_parts[i-1] in param_commands_list:
              # We are after a parameter value/flag. Reset to parameter level for next suggestions.
-             final_nav_node = param_level_subtree
+             final_nav_node = param_level_subtree # Should be the <ifname> subtree
              final_nav_desc_node = param_level_descsubtree
              reset_to_param_level = True # Mark that we reset
              break # Stop navigation here, we want options at the parameter level
@@ -442,8 +529,23 @@ def get_question_mark_help(text_before_question_mark, command_tree, description_
 
     # --- 4. Generate Help Items ---
 
+    # --- NEW: Special handling for getting help for the VALUE of parent-interface ---
+    # Check if the last fully navigated part was 'parent-interface' in the correct context
+    if context == 'config_new_if' and navigate_parts and navigate_parts[-1] == 'parent-interface':
+        # User typed 'config new-interface asd1 parent-interface ?' or '... parent-interface partial?'
+        temp_completer = VMarkCompleter(command_tree, description_tree) # Need instance for helper
+        interfaces = temp_completer.get_available_interfaces()
+        help_items.append(('', f"\nPossible values for 'parent-interface':\n")) # Header
+        for if_name in interfaces:
+            if if_name.startswith(partial): # partial is "" if '?' typed after space
+                help_items.append({'type': 'option', 'display': if_name, 'meta': "Parent Interface"})
+        # Add a format hint if available (though less common for dynamic values)
+        # format_hint = param_level_descsubtree.get("parent-interface", {}).get("format")
+        # if format_hint: help_items.append({'type': 'format', 'hint': format_hint, ...})
+        return help_items # Value help handled
+    # --- END NEW Special Handling ---
+
     # Determine if the last *full* part entered was a parameter value or flag
-    # This helps decide if we should show remaining params even if typing partially
     last_full_part_was_value_or_flag = False
     if context and len(navigate_parts) >= start_index_for_params:
         last_nav_part = navigate_parts[-1]
@@ -545,7 +647,6 @@ def start_cli():
                 command_descriptions # Pass the map here
             )
         except Exception as e:
-            # Using print_formatted_text for errors too, to avoid interfering
             print_formatted_text(FormattedText([('fg:red', f"\nError getting help items: {e}\n")]))
             help_items = []
 
@@ -554,41 +655,42 @@ def start_cli():
 
         # 1. The prompt line + '?'
         prompt_string = f"{getpass.getuser()}/{os.uname().nodename}@vMark-node> "
-        # Add a newline *after* the prompt line
         output_fragments.append(('', f"{prompt_string}{text_before_question_mark} ?\n"))
 
         # 2. Help content (with spacing)
         if help_items:
-            # Check if the first item indicates a format hint (adjust if needed)
-            is_format_hint = False # Default
-            if help_items[0].get('type') == 'format': # Safer check
-                 is_format_hint = True
-
             output_fragments.append(('', "\n")) # Blank line before help
 
-            if is_format_hint:
-                item = help_items[0]
-                output_fragments.append(('', f"Help for '{item.get('param', '')}']:\n")) # Safer get
-                output_fragments.append(('', f"  Format: {item.get('hint', '')}\n"))
-                if item.get('meta'):
-                     output_fragments.append(('', f"  Description: {item['meta']}\n"))
-            else:
-                output_fragments.append(('', "Possible completions:\n"))
-                # Find max display length for alignment
-                max_len = 0
-                for item in help_items:
-                    if item.get('type') == 'option':
-                        max_len = max(max_len, len(item.get('display', '')))
+            # --- REVISED HELP FORMATTING ---
+            # Find max display length for alignment among 'option' types
+            max_len = 0
+            has_options = False
+            for item in help_items:
+                if isinstance(item, dict) and item.get('type') == 'option':
+                    max_len = max(max_len, len(item.get('display', '')))
+                    has_options = True
 
-                for item in help_items:
-                    if item.get('type') == 'option':
-                        display_text = item.get('display', '')
-                        meta_text = str(item.get('meta', ''))
-                        # Simple alignment
-                        output_fragments.append(('', f"  {display_text:<{max_len + 2}} {meta_text}\n"))
+            # Add standard header if only options are present
+            if has_options and isinstance(help_items[0], dict):
+                 output_fragments.append(('', "Possible completions:\n"))
+
+            # Iterate and format each item
+            for item in help_items:
+                if isinstance(item, dict) and item.get('type') == 'option':
+                    display_text = item.get('display', '')
+                    meta_text = str(item.get('meta', ''))
+                    output_fragments.append(('', f"  {display_text:<{max_len + 2}} {meta_text}\n"))
+                elif isinstance(item, tuple) and len(item) == 2:
+                    # Assume it's a header tuple like ('', 'Text\n')
+                    output_fragments.append(item) # Append the tuple directly
+                # Add handling for other potential types like 'format' if needed later
+                # elif isinstance(item, dict) and item.get('type') == 'format':
+                #     output_fragments.append(('', f"  Format: {item.get('hint', '')}\n"))
+
+            # --- END REVISED HELP FORMATTING ---
+
         else:
             output_fragments.append(('', "\n")) # Blank line before message
-            # Use text_before_question_mark.strip() for a cleaner message
             output_fragments.append(('', f"No further options available for: '{text_before_question_mark.strip()}'\n"))
 
         # Add a final blank line for spacing before the prompt redraws
@@ -598,7 +700,6 @@ def start_cli():
         print_formatted_text(FormattedText(output_fragments), end='')
 
         # --- Restore buffer ---
-        # Restore text *before* the '?' without adding extra space automatically
         buffer.text = text_before_question_mark
         buffer.cursor_position = len(buffer.text)
 
