@@ -70,7 +70,12 @@ python3 main.py
 ```
 ___
 ## PIP Install (recommended)
-
+(Might need one of these two lines previous to install pip:)
+```
+sudo dnf install -y pkgconfig libnl3-devel gcc python3-devel
+sudo apt install -y pkg-config libnl-3-dev python3-dev build-essential
+```
+**Then do:**
 ```
 pip install vmark-node
 ~/.local/bin/vmark-node
