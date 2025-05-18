@@ -1,4 +1,6 @@
-<h1 align="center">vMark-node by Pathgate</h1>
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/766164e9-3a5a-46a2-9183-dcfef9bc0aa9" alt="xxx" style="width: 500px; height: auto;">
+</p>
 <h2 align="center">World's first open source Ethernet software-based demarcation NID.</h2>
 
 <p align="center">Latest version: 0.3.8 / Release notes: <a href="https://github.com/xmas-ar/vMark-node/blob/public/docs/base/release_notes.md">Link</a> / News at: <a href="https://www.linkedin.com/company/pathgate">LinkedIn</a> </p></p>
