@@ -32,13 +32,13 @@ logging.basicConfig(
 )
 # Configure the twamp logger
 log = logging.getLogger('twamp')
-log.setLevel(logging.INFO) # Or DEBUG for more details DESHABILTIAR ACA
+log.setLevel(logging.DEBUG) # Or DEBUG for more details DESHABILTIAR ACA
 log_file_path = Path.home() / ".vmark" / "api.log"
 handler_exists = any(isinstance(h, logging.FileHandler) and h.baseFilename == str(log_file_path) for h in log.handlers)
 if not handler_exists:
     log_dir = log_file_path.parent
     log_dir.mkdir(exist_ok=True)
-
+    log.propagate = False
     # Create file handler
     file_handler = logging.FileHandler(log_file_path)
     file_handler.setLevel(logging.DEBUG) # Log everything to the file
@@ -52,7 +52,6 @@ if not handler_exists:
     log.info("File handler added for twamp logger to api.log") # Confirm handler addition
 
     # Optional: Prevent logging to console if already handled by root logger or api_server
-    # log.propagate = False
 else:
     log.info("File handler for twamp logger to api.log already exists.")
 # --- End Logging Modification ---
@@ -296,20 +295,144 @@ def get_command_tree():
     """Build and return command tree based on descriptions"""
     def build_tree(source, target):
         for key, value in source.items():
-            if key in ["_options", "format", ""]: # Skip metadata and description key
+            if key in ["_options", "format", ""]:  # Skip metadata and description key
                 continue
 
             if isinstance(value, dict):
                 target[key] = {}
                 build_tree(value, target[key])
             else:
-                target[key] = None # Leaf node
-
+                target[key] = {}  # Change from None to {} for proper nesting
+    
+    # Make sure each parameter has an empty dictionary as child
+    # This ensures parameters like destination-ip have {} rather than None
+    # which allows the shell.py tab completion to find sibling parameters
+    
     result = {}
-    build_tree(command_tree['twamp'], result) # Start from 'twamp' level
+    build_tree(command_tree['twamp'], result)  # Start from 'twamp' level
 
-    # --- FIX: Return the result directly ---
-    return result # Corrected line
+    # Fix for ipv4/ipv6 sender parameters
+    for ip_version in ['ipv4', 'ipv6']:
+        if ip_version in result and 'sender' in result[ip_version]:
+            sender = result[ip_version]['sender']
+            
+            # Make sure all parameters can be followed by their siblings
+            param_parent = sender
+            
+            # Create proper sibling connections
+            params = ["destination-ip", "port", "count", "interval", "padding", "ttl", "tos", "do-not-fragment"]
+            
+            # Initialize empty dictionaries for any None values
+            for param in params:
+                if param in param_parent and param_parent[param] is None:
+                    param_parent[param] = {}
+            
+            # Create mapping for each parameter to contain all its siblings
+            for param in params:
+                if param in param_parent:
+                    # Check if this param has _options
+                    options = []
+                    
+                    # Get options directly from command_tree if they exist
+                    if (ip_version in command_tree["twamp"] and 
+                        "sender" in command_tree["twamp"][ip_version] and
+                        param in command_tree["twamp"][ip_version]["sender"] and
+                        isinstance(command_tree["twamp"][ip_version]["sender"][param], dict) and
+                        "_options" in command_tree["twamp"][ip_version]["sender"][param]):
+                        options = command_tree["twamp"][ip_version]["sender"][param]["_options"]
+                    # Fallback for parameters without _options (like do-not-fragment)
+                    elif param in param_parent:
+                        options = [""]
+                    
+                    # For each parameter option/value
+                    for option in options:
+                        # Create the parameter value node if it doesn't exist
+                        if option not in param_parent[param]:
+                            param_parent[param][option] = {}
+                        
+                        # Add all sibling parameters to this parameter value node
+                        for sibling in params:
+                            if sibling != param and sibling in param_parent:
+                                param_parent[param][option][sibling] = param_parent[sibling]
+    
+    # Do the same for responder parameters
+    for ip_version in ['ipv4', 'ipv6']:
+        if ip_version in result and 'responder' in result[ip_version]:
+            responder = result[ip_version]['responder']
+            
+            # Define responder parameters
+            resp_params = ["port", "padding", "ttl", "tos", "do-not-fragment"]
+            
+            # Initialize empty dictionaries for any None values
+            for param in resp_params:
+                if param in responder and responder[param] is None:
+                    responder[param] = {}
+            
+            # Create mapping for each parameter
+            for param in resp_params:
+                if param in responder:
+                    # Get options
+                    options = []
+                    if (ip_version in command_tree["twamp"] and 
+                        "responder" in command_tree["twamp"][ip_version] and
+                        param in command_tree["twamp"][ip_version]["responder"] and
+                        isinstance(command_tree["twamp"][ip_version]["responder"][param], dict) and
+                        "_options" in command_tree["twamp"][ip_version]["responder"][param]):
+                        options = command_tree["twamp"][ip_version]["responder"][param]["_options"]
+                    elif param in responder:
+                        options = [""]
+                    
+                    # For each option
+                    for option in options:
+                        if option not in responder[param]:
+                            responder[param][option] = {}
+                        
+                        # Add sibling parameters
+                        for sibling in resp_params:
+                            if sibling != param and sibling in responder:
+                                responder[param][option][sibling] = responder[sibling]
+    
+    # Also do the same for stop commands
+    for ip_version in ['ipv4', 'ipv6']:
+        if ip_version in result and 'stop' in result[ip_version]:
+            if 'responder' in result[ip_version]['stop']:
+                resp_stop = result[ip_version]['stop']['responder']
+                if 'port' in resp_stop:
+                    for option in list(resp_stop['port'].keys()):
+                        if resp_stop['port'][option] is None:
+                            resp_stop['port'][option] = {}
+            
+            if 'sender' in result[ip_version]['stop']:
+                sender_stop = result[ip_version]['stop']['sender']
+                stop_params = ["destination-ip", "port"]
+                
+                # Initialize empty dictionaries for any None values
+                for param in stop_params:
+                    if param in sender_stop and sender_stop[param] is None:
+                        sender_stop[param] = {}
+                
+                # Create sibling relationships
+                for param in stop_params:
+                    if param in sender_stop:
+                        options = []
+                        if (ip_version in command_tree["twamp"] and 
+                            "stop" in command_tree["twamp"][ip_version] and
+                            "sender" in command_tree["twamp"][ip_version]["stop"] and
+                            param in command_tree["twamp"][ip_version]["stop"]["sender"] and
+                            isinstance(command_tree["twamp"][ip_version]["stop"]["sender"][param], dict) and
+                            "_options" in command_tree["twamp"][ip_version]["stop"]["sender"][param]):
+                            options = command_tree["twamp"][ip_version]["stop"]["sender"][param]["_options"]
+                        elif param in sender_stop:
+                            options = [""]
+                        
+                        for option in options:
+                            if option not in sender_stop[param]:
+                                sender_stop[param][option] = {}
+                            
+                            for sibling in stop_params:
+                                if sibling != param and sibling in sender_stop:
+                                    sender_stop[param][option][sibling] = sender_stop[sibling]
+    return result
 
 def get_descriptions():
     """Return the description dictionary."""
@@ -317,38 +440,61 @@ def get_descriptions():
 
 def format_results(results, params):
     """Formats the results dictionary into a string similar to the original output."""
-    if not results or not isinstance(results, dict) or 'error' in results:
-        error_msg = results.get('error', 'Unknown error') if isinstance(results, dict) else str(results)
-        return f"Error during test or no results: {error_msg}"
+    # Add debug logging to inspect the input
+    log.debug(f"format_results called with: {results}")
+    
+    # Check for None or empty results
+    if results is None:
+        return "Error during test or no results: None"
+        
+    # Check for dictionary with error
+    if not isinstance(results, dict):
+        return f"Error during test or invalid results format: {type(results).__name__}"
+        
+    # Check if error key exists and has a value (but don't treat None as an error)
+    if 'error' in results and results['error'] and results['error'] is not None:
+        return f"Error during test: {results['error']}"
+    
+    # Check for required keys to display results
+    required_keys = ['packets_tx', 'packets_rx'] 
+    missing_keys = [key for key in required_keys if key not in results]
+    
+    if missing_keys:
+        log.warning(f"Results dictionary missing required keys: {missing_keys}")
+        return f"Error: Incomplete results (missing {', '.join(missing_keys)})"
 
     # Use .get with defaults for safety and format using dp helper
-    o_min = dp(results.get('outbound_min_us', 0))
-    o_max = dp(results.get('outbound_max_us', 0))
-    o_avg = dp(results.get('outbound_avg_us', 0))
-    o_jit = dp(results.get('outbound_jitter_us', 0))
-    # Get the loss value, which might be None
-    o_loss_val = results.get('outbound_loss_percent')
-    i_min = dp(results.get('inbound_min_us', 0))
-    i_max = dp(results.get('inbound_max_us', 0))
-    i_avg = dp(results.get('inbound_avg_us', 0))
-    i_jit = dp(results.get('inbound_jitter_us', 0))
-    # Get the loss value, which might be None
-    i_loss_val = results.get('inbound_loss_percent')
-    r_min = dp(results.get('roundtrip_min_us', 0))
-    r_max = dp(results.get('roundtrip_max_us', 0))
-    r_avg = dp(results.get('roundtrip_avg_us', 0))
-    r_jit = dp(results.get('roundtrip_jitter_us', 0))
-    # Total loss should be a float
-    r_loss = results.get('total_loss_percent', 0.0)
-    pkts_tx = results.get('packets_tx', 0)
-    pkts_rx = results.get('packets_rx', 0)
-    # Use original requested count if available in params, else use packets_tx
-    total_req = params.get('count', pkts_tx)
+    try:
+        o_min = dp(results.get('outbound_min_us'))
+        o_max = dp(results.get('outbound_max_us'))
+        o_avg = dp(results.get('outbound_avg_us'))
+        o_jit = dp(results.get('outbound_jitter_us'))
+        # Get the loss value, which might be None
+        o_loss_val = results.get('outbound_loss_percent')
+        i_min = dp(results.get('inbound_min_us'))
+        i_max = dp(results.get('inbound_max_us'))
+        i_avg = dp(results.get('inbound_avg_us'))
+        i_jit = dp(results.get('inbound_jitter_us'))
+        # Get the loss value, which might be None
+        i_loss_val = results.get('inbound_loss_percent')
+        r_min = dp(results.get('roundtrip_min_us'))
+        r_max = dp(results.get('roundtrip_max_us'))
+        r_avg = dp(results.get('roundtrip_avg_us'))
+        r_jit = dp(results.get('roundtrip_jitter_us'))
+        # Total loss should be a float
+        r_loss = results.get('total_loss_percent', 0.0)
+        pkts_tx = results.get('packets_tx', 0)
+        pkts_rx = results.get('packets_rx', 0)
+        # Use original requested count if available in params, else use packets_tx
+        total_req = params.get('count', pkts_tx)
+    except Exception as e:
+        log.error(f"Error processing results values: {e}")
+        return f"Error formatting results: {str(e)}"
 
     # --- Format loss values, handling None ---
     o_loss_str = f"{o_loss_val:5.1f}%" if o_loss_val is not None else "  N/A "
     i_loss_str = f"{i_loss_val:5.1f}%" if i_loss_val is not None else "  N/A "
-    r_loss_str = f"{r_loss:5.1f}%" # Total loss should always be a number
+    r_loss_str = f"{r_loss:5.1f}%" if r_loss is not None else "  0.0%" # Total loss should always be a number
 
     output = io.StringIO()
     # Use print to write to the StringIO object
@@ -362,8 +508,9 @@ def format_results(results, params):
     print("-------------------------------------------------------------------------------", file=output)
     print("                                                 pathgate's Onyx Test [RFC5357]", file=output)
     print("=====================================================================================", file=output)
+    
+    # Return the formatted output
     return output.getvalue()
-
 
 # --- Helper function to terminate ---
 def _terminate_process(pid, session_key_str):
@@ -576,8 +723,9 @@ def handle(args, username="cli_user", hostname="vmark-node"):
             log.info(f"Attempting to start TWAMP {ip_version_str} sender via twl_sender to {params['dest_ip']}:{params['port']}")
             result = twl_sender(parsed_args) # Call the modified function from onyx.py
 
-            log.debug(f"Result received from twl_sender: type={type(result)}, value='{result}'")
-
+            # Add more detailed logging to help diagnose the issue
+            log.debug(f"Raw result from twl_sender: {result}")
+            
             if isinstance(result, threading.Thread):
                 sender_thread_obj = result
                 # Create a unique key for the sender session
@@ -596,14 +744,57 @@ def handle(args, username="cli_user", hostname="vmark-node"):
                 # Return status message - results will not be available immediately
                 return f"TWAMP sender to {params['dest_ip']}:{params['port']} started successfully."
 
-            elif isinstance(result, dict) and 'error' in result: # Check if twl_sender returned an error dict
-                error_msg = result['error']
-                log.error(f"Failed to start sender: {error_msg}")
-                return f"Error: {error_msg}"
+            elif isinstance(result, dict):
+                # IMPORTANT BUGFIX: Check for error first, then handle results.
+                # If result has 'error' key with a value, it's an error
+                if 'error' in result and result['error']:
+                    # Check for network connectivity issue
+                    if 'Network is unreachable' in result['error']:
+                        log.error(f"Network connectivity error: {result['error']}")
+                        return f"Error: Cannot reach {params['dest_ip']}:{params['port']} - Network is unreachable"
+                    
+                    # Other specific error with valid message
+                    log.error(f"Failed to start sender: {result['error']}")
+                    return f"Error: {result['error']}"
+                
+                # BUGFIX: If we have results dict with packets_tx but no error, it's SUCCESS
+                elif 'packets_tx' in result:
+                    log.info(f"Sender completed successfully, formatting results.")
+                    
+                    # Debug log the full result structure
+                    log.debug(f"Full result structure: {result}")
+                    
+                    # This is a success case with results, format and return
+                    formatted_results = format_results(result, params)
+                    
+                    # Check if formatting succeeded
+                    if "Error" in formatted_results:
+                        log.warning(f"Results formatting failed: {formatted_results}")
+                        
+                        # Try to extract some basic data to show something useful
+                        pkts_tx = result.get('packets_tx', 0)
+                        pkts_rx = result.get('packets_rx', 0)
+                        loss = result.get('total_loss_percent', 'N/A')
+                        
+                        return f"\nTWAMP test completed:\n- Packets sent: {pkts_tx}\n- Packets received: {pkts_rx}\n- Packet loss: {loss}%\n(Detailed formatting failed, check logs)"
+                    else:
+                        return formatted_results
+                
+                # Only treat None error as connection issue if no packets were transmitted
+                # This handles the case where result has 'error': None but no packet data
+                elif 'error' in result and result['error'] is None and ('packets_tx' not in result or result['packets_tx'] == 0):
+                    log.error("Failed to start sender: Got error=None response with no packets transmitted")
+                    return f"Error: Cannot connect to {params['dest_ip']}:{params['port']} - No TWAMP responder running on that address/port"
+                
+                # Fallback for any other dict format
+                else:
+                    log.warning(f"Unexpected result format from twl_sender: {result}")
+                    return format_results(result, params)
+            
             else:
                 # Unexpected result type
                 log.error(f"Unexpected result type from twl_sender: {type(result)}")
-                return f"Error: Internal error starting sender (unexpected result)."
+                return f"Error: Internal error starting sender (unexpected result type: {type(result).__name__})"
             # --- End Modification ---
 
         except ValueError as ve:
@@ -698,10 +889,11 @@ def handle(args, username="cli_user", hostname="vmark-node"):
             # parsed_args.tos = params['tos']
             # parsed_args.do_not_fragment = params['do_not_fragment']
 
+            log.debug(f"Starting responder with params: {vars(parsed_args)}")
             log.info(f"Attempting to start TWAMP responder via twl_responder for {session_key_str}")
             result = twl_responder(parsed_args) # Call the modified function from onyx.py
 
-            log.debug(f"Result received from twl_responder for {session_key_str}: type={type(result)}, value='{result}'")
+            log.debug(f"Raw result from twl_responder for {session_key_str}: type={type(result)}, value='{result}'")
 
             # Check result and track if successful
             if isinstance(result, threading.Thread):
@@ -710,11 +902,12 @@ def handle(args, username="cli_user", hostname="vmark-node"):
                     _active_responders[session_key] = responder_thread_obj
                     log.debug(f"Stored thread object in _active_responders for key {session_key}. Current keys: {list(_active_responders.keys())}")
                 log.info(f"Successfully started and tracked responder thread '{responder_thread_obj.name}' for {session_key_str}")
-                return "TWAMP responder started successfully."
-            elif isinstance(result, dict) and 'error' in result: # Check if twl_responder returned an error dict
+                # FIXED: Return a more informative message with port and IP version
+                return f"TWAMP responder started successfully on port {params['port']} for {ip_version_str}."
+            elif isinstance(result, dict) and 'error' in result:
                 error_msg = result['error']
                 log.error(f"Failed to start responder for {session_key_str}: {error_msg}")
-                return f"Error: {error_msg}" # Return the error message
+                return f"Error: {error_msg}"
             else:
                 log.error(f"Unexpected result type from twl_responder for {session_key_str}: {type(result)}")
                 return f"Error: Internal error starting responder {session_key_str} (unexpected result)."

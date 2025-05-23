@@ -2,192 +2,172 @@ from pyroute2 import IPDB
 import subprocess
 import re
 import ipaddress  # Ensure this is imported once at the top
+from cli.utils import get_dynamic_interfaces
+import sys
+import termios
+import tty
+from contextlib import contextmanager
 
 # Define descriptions with proper _options for parameters
-descriptions = {
-    "interface": {
-        "": "Configure network interfaces",
-        "<ifname>": {
-            "": "Interface name",
-            "mtu": {
-                "": "Set MTU size",
-                "_options": ["<1-10000>"],  # Common MTU values
-            },
-            "speed": {
-                "": "Set interface speed",
-                "_options": ["10M", "100M", "1G", "10G"],
-            },
-            "status": {
-                "": "Set interface status",
-                "_options": ["up", "down"],
-            },
-            "auto-nego": {
-                "": "Enable or disable auto-negotiation",
-                "_options": ["on", "off"],
-            },
-            "duplex": {
-                "": "Set duplex mode",
-                "_options": ["half", "full"],
-            },
-        }
-    },
-    "new-interface": {
-        "": "Create a new interface",
-        "<ifname>": {
-            "": "New interface name",
-            "parent-interface": {
-                "": "Parent interface name (REQUIRED)",
-                "_options": ["<parent-ifname>"],
-            },
-            "cvlan-id": {
-                "": "Customer VLAN ID (C-TAG)",
-                "_options": ["<1-4000>"],
-            },
-            "svlan-id": {
-                "": "Service VLAN ID (S-TAG)",
-                "_options": ["<1-4000>"],
-            },
-            "mtu": {
-                "": "Set MTU size",
-                "_options": ["<1000-10000>"],
-            },
-            "status": {
-                "": "Set interface status",
-                "_options": ["up", "down"],
-            },
-            "ipv4address": {
-                "": "Set IPv4 address (REQUIRED)",
-                "_options": ["<x.x.x.x>"],
-                "format": "Enter IPv4 address in dotted decimal format (e.g., 192.168.1.1)"
-            },
-            "netmask": {
-                "": "Set network mask (REQUIRED)",
-                "_options": ["</xx>", "<x.x.x.x>"],
-                "format": "Enter CIDR format (e.g., /24) or dotted decimal (e.g., 255.255.255.0)"
-            },
-        }
-    },
-    "delete-interface": {
-        "": "Delete a network interface",
-        "<ifname>": {
-            "": "Name of interface to delete"
-        }
-    }
-}
-
-def get_command_tree():
-    """Build and return command tree based on descriptions"""
-    # Import required modules
-    from pyroute2 import IPDB
-    
-    # Build basic tree from descriptions
-    command_tree = {}
-    
-    # Helper function to recursively build the command tree
-    def build_tree(source, target):
-        for key, value in source.items():
-            if key == "_options":
-                # Skip options section
-                continue
-                
-            if isinstance(value, dict):
-                target[key] = {}
-                build_tree(value, target[key])
-            else:
-                target[key] = None
-    
-    # Helper function to build a tree from a description dictionary
-    def build_tree_from_descriptions(desc):
-        result = {}
-        build_tree(desc, result)
-        return result
-    
-    # Build the tree
-    build_tree(descriptions, command_tree)
-    
-    # Get interface list for autocomplete
-    try:
-        # Get interface list using ip command instead of IPDB for more reliability
-        ip_output = subprocess.run(
-            ["ip", "-br", "link", "show"],
-            capture_output=True,
-            text=True,
-            check=True
-        )
-        
-        if_names = []
-        for line in ip_output.stdout.splitlines():
-            parts = line.split()
-            if parts:
-                # Get interface name without @ or : suffixes
-                if_name = parts[0].split('@')[0].split(':')[0]
-                if_names.append(if_name)
-        
-        # Add interface names to the tree for config interface command
-        if "interface" in command_tree:
-            for if_name in if_names:
-                command_tree["interface"][if_name] = build_tree_from_descriptions(
-                    descriptions["interface"]["<ifname>"]
-                )
-        
-        # Add interface names to delete-interface command
-        if "delete-interface" in command_tree:
-            for if_name in if_names:
-                # Add the interface name and then the confirm option under it
-                command_tree["delete-interface"][if_name] = {"confirm": None}
-        
-        # Add dynamic interface names to parent-interface options in new-interface
-        if "new-interface" in command_tree and "<ifname>" in command_tree["new-interface"]:
-            parent_if_cmd = command_tree["new-interface"]["<ifname>"]["parent-interface"]
-            # Add available interfaces as options
-            for if_name in if_names:
-                parent_if_cmd[if_name] = None
-                
-    except Exception as e:
-        # Fallback to the IPDB method if subprocess fails
-        try:
-            with IPDB() as ipdb:
-                interface_names = list(ipdb.interfaces.keys())
-            
-            # Convert interface IDs to names
-            if_names = []
-            for if_id in interface_names:
-                try:
-                    if_name = ipdb.interfaces[if_id]['ifname']
-                    if if_name:
-                        if_names.append(if_name)
-                except:
-                    # Skip interfaces that can't be accessed
-                    pass
-            
-            # Add interface names to the tree for config interface command
-            if "interface" in command_tree:
-                for if_name in if_names:
-                    command_tree["interface"][if_name] = build_tree_from_descriptions(
-                        descriptions["interface"]["<ifname>"]
-                    )
-            
-            # Add interface names to delete-interface command
-            if "delete-interface" in command_tree:
-                for if_name in if_names:
-                    # Add the interface name and then the confirm option under it
-                    command_tree["delete-interface"][if_name] = {"confirm": None}
-                    
-            # Add dynamic interface names to parent-interface options in new-interface
-            if "new-interface" in command_tree and "<ifname>" in command_tree["new-interface"]:
-                parent_if_cmd = command_tree["new-interface"]["<ifname>"]["parent-interface"]
-                # Add available interfaces as options
-                for if_name in if_names:
-                    parent_if_cmd[if_name] = None
-        except:
-            # If all else fails, at least return the basic tree
-            pass
-    
-    return command_tree
-
 def get_descriptions():
     """Return the description dictionary."""
-    return descriptions
+    interfaces = get_dynamic_interfaces()  # Obtener interfaces dinámicamente
+
+    desc = {
+        "interface": {
+            "": "Configure network interfaces",
+            "<ifname>": {
+                "": "Interface name",
+                "_options": interfaces,  # Usar la variable correcta
+                "mtu": {
+                    "": "Set MTU size",
+                    "_options": ["<1-10000>"],
+                },
+                "speed": {
+                    "": "Set interface speed",
+                    "_options": ["10M", "100M", "1G", "10G"],
+                },
+                "status": {
+                    "": "Set interface status",
+                    "_options": ["up", "down"],
+                },
+                "auto-nego": {
+                    "": "Enable or disable auto-negotiation",
+                    "_options": ["on", "off"],
+                },
+                "duplex": {
+                    "": "Set duplex mode",
+                    "_options": ["half", "full"],
+                },
+            }
+        },
+        "new-interface": {
+            "": "Create a new interface",
+            "<ifname>": {
+                "": "New interface name",
+                "parent-interface": {
+                    "": "Parent interface name (REQUIRED)",
+                    "_options": interfaces  # Agregar interfaces dinámicas
+                },
+                "cvlan-id": {
+                    "": "Customer VLAN ID (C-TAG)",
+                    "_options": ["<1-4000>"],
+                },
+                "svlan-id": {
+                    "": "Service VLAN ID (S-TAG)",
+                    "_options": ["<1-4000>"],
+                },
+                "mtu": {
+                    "": "Set MTU size",
+                    "_options": ["<1000-10000>"],
+                },
+                "status": {
+                    "": "Set interface status",
+                    "_options": ["up", "down"],
+                },
+                "ipv4address": {
+                    "": "Set IPv4 address (REQUIRED)",
+                    "_options": ["<x.x.x.x>"],
+                },
+                "netmask": {
+                    "": "Set network mask (REQUIRED)",
+                    "_options": ["</xx>", "<x.x.x.x>"],
+                },
+            }
+        },
+        "delete-interface": {
+            "": "Delete a network interface",
+            "<ifname>": {
+                "": "Name of interface to delete",
+                "_options": interfaces  # Usar la variable correcta
+            }
+        }
+    }
+    return desc
+
+def get_command_tree():
+    """Build and return command tree based on descriptions."""
+    descriptions_data = get_descriptions()
+    interfaces = get_dynamic_interfaces() # Asegurarse de tener las interfaces para _options
+
+    def build_tree_from_desc(desc_node, current_path_for_options=None):
+        tree_node = {}
+        if not isinstance(desc_node, dict):
+            return {} # O None, dependiendo de cómo se manejen las hojas
+
+        for key, value_desc in desc_node.items():
+            if key == "_options": # No incluir _options directamente en el command_tree
+                continue
+            if key == "": # La descripción general no es un comando
+                continue
+
+            if isinstance(value_desc, dict):
+                # Si es un placeholder, el siguiente nivel es el contenido del placeholder
+                if key.startswith("<") and key.endswith(">"):
+                    # El command_tree para un placeholder es lo que sigue DESPUÉS de él.
+                    # Lo que está DENTRO del placeholder en descriptions es la estructura de sus parámetros.
+                    # Ejemplo: "<ifname>": { "parent-interface": ..., "cvlan-id": ... }
+                    # El command_tree debe ser: "<ifname>": { lo que sigue a ifname }
+                    
+                    # Para los placeholders que esperan un valor (como <ifname>, <parent-interface>),
+                    # el command_tree debe reflejar los siguientes parámetros *después* de que se provee el valor.
+                    # La estructura de `_create_rule_structure` en xdp_mef_switch es un buen ejemplo.
+                    # Aquí, el `value_desc` es el diccionario de parámetros que siguen al placeholder.
+                    tree_node[key] = build_tree_from_desc(value_desc, current_path_for_options=key)
+
+                else: # Es un subcomando normal
+                    tree_node[key] = build_tree_from_desc(value_desc, current_path_for_options=key)
+            else:
+                # Es una hoja en descriptions (solo una cadena de descripción), en command_tree es un comando final.
+                tree_node[key] = {} # O None si así se prefiere para comandos finales
+        
+        # Manejo especial para _options que definen valores aceptables para un placeholder
+        # Esto es más para la ayuda contextual que para la estructura de comandos anidados.
+        # Sin embargo, si un placeholder tiene opciones fijas (no otros comandos anidados),
+        # se podrían listar aquí.
+        if current_path_for_options and isinstance(desc_node.get("_options"), list):
+            # Si el nodo actual (identificado por current_path_for_options) tiene _options,
+            # y esas opciones son valores (no subcomandos), se pueden agregar.
+            # Ejemplo: status: {"_options": ["up", "down"]} -> status: {"up":{}, "down":{}}
+            options_for_placeholder = desc_node.get("_options")
+            # Solo agregar si no son placeholders ellos mismos (como <1-4000>)
+            # y si no son las interfaces dinámicas que ya se manejan.
+            if all(not opt.startswith("<") for opt in options_for_placeholder if isinstance(opt, str)) \
+               and options_for_placeholder != interfaces:
+                for opt_val in options_for_placeholder:
+                    if isinstance(opt_val, str): # Asegurar que es una cadena
+                         tree_node[opt_val] = {}
+
+
+        return tree_node
+
+    # Construir el árbol principal
+    final_tree = build_tree_from_desc(descriptions_data)
+    
+    # Ajuste específico para `config interface <ifname> status up/down` etc.
+    # El `get_descriptions` ya tiene la estructura correcta para esto.
+    # El `build_tree_from_desc` debería manejarlo.
+
+    # Asegurar que los placeholders como <ifname> en `config interface <ifname>`
+    # lleven a la estructura de sus subcomandos (mtu, speed, etc.)
+    if "interface" in final_tree and "<ifname>" in final_tree["interface"]:
+        # El contenido de final_tree["interface"]["<ifname>"] ya debería tener mtu, speed, etc.
+        # debido a la recursión de build_tree_from_desc.
+        pass # Ya debería estar correcto por la lógica recursiva.
+
+    if "new-interface" in final_tree and "<ifname>" in final_tree["new-interface"]:
+        # Similarmente, el contenido de final_tree["new-interface"]["<ifname>"]
+        # debería tener parent-interface, cvlan-id, etc.
+        pass
+
+
+    # El command_tree para `delete-interface <ifname>` es solo `delete-interface: {"<ifname>": {}}`
+    # porque después del nombre de la interfaz no hay más parámetros.
+    if "delete-interface" in final_tree and "<ifname>" in final_tree["delete-interface"]:
+        final_tree["delete-interface"]["<ifname>"] = {}
+
+
+    return final_tree
 
 def run_with_sudo(command):
     try:
@@ -747,10 +727,6 @@ def handle(args, username, hostname):
                 return f"{prompt}Error deleting interface: {e}"
         else:
             # Show confirmation message and wait for input
-            import sys
-            import termios
-            import tty
-            from contextlib import contextmanager
             
             @contextmanager
             def raw_mode():

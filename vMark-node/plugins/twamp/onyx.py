@@ -185,7 +185,7 @@ class onyxTimestamp:
 # +++ End onyxTimestamp Class +++
 
 
-# --- Base class functionality (Integrated from hypothetical udpSession) ---
+# --- Fix BaseSessionThread class methods indentation ---
 class BaseSessionThread(threading.Thread):
     """Base class for UDP session threads providing socket handling and stop mechanism."""
     def __init__(self, far_end=None, ip_version=4, name=None):
@@ -256,8 +256,16 @@ class BaseSessionThread(threading.Thread):
 
             # Bind if required (usually for responder, or sender needing specific source port)
             if bind_port is not None: # Bind if port is specified
-                bind_ip_actual = bind_addr if bind_addr and bind_addr != 'any' else ('::' if family == socket.AF_INET6 else '0.0.0.0')
+                # FIXED: Ensure correct binding address
+                # For IPv4
+                if family == socket.AF_INET:
+                    bind_ip_actual = bind_addr if bind_addr and bind_addr != 'any' else '0.0.0.0'
+                # For IPv6 
+                else:
+                    bind_ip_actual = bind_addr if bind_addr and bind_addr != 'any' else '::'
+                
                 try:
+                    log.debug(f"Attempting to bind socket to {bind_ip_actual}:{bind_port}")
                     self.sock.bind((bind_ip_actual, bind_port))
                     log.info(f"Thread '{self.name}' socket bound to {bind_ip_actual}:{bind_port}")
                 except socket.error as bind_err:
@@ -854,13 +862,39 @@ def twl_responder(args):
         ip_version = args.ip_version
         timer = getattr(args, 'timer', 0) # Get session reset timer
 
+        # Add more debug logging
+        log.debug(f"twl_responder parameters: bind_addr={bind_addr}, bind_port={bind_port}, ip_version={ip_version}")
+        
+        # Test socket binding directly to diagnose potential issues
+        family = socket.AF_INET6 if ip_version == 6 else socket.AF_INET
+        bind_ip_actual = 'any' if bind_addr == 'any' else bind_addr
+        if bind_ip_actual == 'any':
+            bind_ip_actual = '::' if ip_version == 6 else '0.0.0.0'
+            
+        try:
+            log.debug(f"Testing socket binding to {bind_ip_actual}:{bind_port}...")
+            test_sock = socket.socket(family, socket.SOCK_DGRAM)
+            test_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            test_sock.bind((bind_ip_actual, bind_port))
+            log.debug(f"Socket binding test successful")
+            test_sock.close()
+        except Exception as e:
+            log.error(f"Socket binding test failed: {e}")
+            return {"error": f"Cannot bind to {bind_ip_actual}:{bind_port} - {str(e)}"}
+
         # Create responder instance
         responder_thread = onyxSessionReflector(
             bind_addr=bind_addr, bind_port=bind_port, ip_version=ip_version, timer=timer
         )
         responder_thread.name = f"onyxResponder-{bind_port}"
+        
+        # Rest of the function remains the same...
 
         if is_interactive:
+            # Running from CLI, make it non-daemon and wait
+            responder_thread.daemon = False
+            log.debug("Running interactively, setting daemon=False.")
+
             # Running from CLI, make it non-daemon and wait
             responder_thread.daemon = False
             log.debug("Running interactively, setting daemon=False.")
@@ -968,18 +1002,7 @@ def dscpTable():
     """Prints a formatted DSCP mapping table."""
     # (Implementation remains the same as provided)
     print("""
-============================================================
-DSCP Mapping
-============================================================
-DSCP Name      DSCP Value     TOS (bin)      TOS (hex)
-------------------------------------------------------------
-be             0              0000 0000      00
-# ... (rest of the table) ...
-cs5            40             1010 0000      A0
-ef             46             1011 1000      B8
-nc1            48             1100 0000      C0
-nc2            56             1110 0000      E0
-============================================================""")
+Feature not available""")
     sys.stdout.flush()
 
 #############################################################################

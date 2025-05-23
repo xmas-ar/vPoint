@@ -1,6 +1,6 @@
 import subprocess
 from pyroute2 import IPDB
-from cli.modules import config, system, register  # Import config, system, and register modules
+from cli.modules import config, system, register, twamp, xdp_mef_switch  # Import config, system, and register modules
 
 descriptions = {
     "tree": {
@@ -9,14 +9,17 @@ descriptions = {
         "config": "Display only the 'config' tree",
         "system": "Display only the 'system' tree",
         "twamp": "Display only the 'twamp' tree",
-        "register": "Display only the 'register' tree",  # Added register
+        "register": "Display only the 'register' tree",
+        "xdp-switch": "Display only the 'xdp-switch' tree",
+
         "details": {
             "": "Display entire command tree with descriptions",
             "show": "Display only the 'show' tree with descriptions",
             "config": "Display only the 'config' tree with descriptions",
             "system": "Display only the 'system' tree with descriptions",
             "twamp": "Display only the 'twamp' tree with descriptions",
-            "register": "Display only the 'register' tree with descriptions", # Added register
+            "register": "Display only the 'register' tree with descriptions",
+            "xdp-switch" : "Display only the 'xdp-switch' tree with descriptions",
         },
     },
     "interfaces": {
@@ -83,18 +86,46 @@ def get_descriptions():
 
 # Fix the print_tree function to reduce excessive whitespace
 
-def print_tree(d, prefix="", is_last=True, path=None):
-    """Print a tree structure in a more compact format"""
+def print_tree(d, prefix="", is_last=True, path=None, visited=None, max_depth=None, current_depth=0):
+    """Print a tree structure with improved cycle detection and depth limiting"""
     if path is None:
         path = []
     
-    if not d:  # Empty dictionary
+    # Initialize visited set for cycle detection
+    if visited is None:
+        visited = set()
+    
+    # Initialize max_depth if not provided
+    if max_depth is None:
+        max_depth = 5  # Default to a much lower value to prevent recursion issues
+    
+    # Depth limiting to prevent overly complex tree displays
+    if current_depth > max_depth:
+        return f"{prefix}... (max depth reached)"
+    
+    if not isinstance(d, dict) or not d:  # Check if d is a dict and not empty
         return ""
+    
+    # Create path-based node identifier for smarter cycle detection
+    current_path_str = '.'.join(str(p) for p in path) if path else "root"
+    current_node_id = (current_path_str, id(d))
+    
+    if current_node_id in visited:
+        # Only show cyclic reference if it's not an empty parameter value
+        if not path or not str(path[-1]).startswith("<"):
+            return f"{prefix}⟲ [cyclic reference]"
+        return ""
+    
+    # Mark this node as visited
+    visited.add(current_node_id)
     
     lines = []  # Store lines instead of a single result string
     
-    # Sort the keys for consistent output
-    items = sorted(d.items())
+    # Sort the keys for consistent output, filtering out None keys and internal keys like _options
+    items = []
+    if isinstance(d, dict):
+        items = [(k, v) for k, v in d.items() if k is not None and isinstance(k, str) and not k.startswith('_')]
+    items.sort(key=lambda x: str(x[0]))
     
     for i, (k, v) in enumerate(items):
         is_last_item = i == len(items) - 1
@@ -102,7 +133,7 @@ def print_tree(d, prefix="", is_last=True, path=None):
         # Skip empty keys
         if k == "":
             continue
-            
+        
         # Create the branch symbol
         if is_last_item:
             branch = "└── " if prefix else ""
@@ -114,35 +145,82 @@ def print_tree(d, prefix="", is_last=True, path=None):
         # Build the full path for this node
         current_path = path + [k]
         
+        # Skip parameter values that would create cycles - with strict depth control
+        if str(k).startswith("<") and current_depth >= 2:
+            lines.append(f"{prefix}{branch}{k}")
+            continue
+            
         # Add the current item
         lines.append(f"{prefix}{branch}{k}")
         
-        # Recursively add subtrees, but only if they contain items
+        # Recursively add subtrees, but only if they contain items and are not cycles
+        # Limit the maximum depth for certain key patterns to avoid deep recursion
+        local_max_depth = max_depth
+        if 'out-if' in str(current_path_str) or 'cvlan' in str(current_path_str) or 'svlan' in str(current_path_str):
+            local_max_depth = min(max_depth, current_depth + 2)  # Restrict depth for VLAN and interface paths
+            
         if isinstance(v, dict) and v:
-            subtree = print_tree(v, new_prefix, is_last_item, current_path)
+            # Pass a COPY of the visited set to avoid side effects between different branches
+            subtree = print_tree(
+                v, 
+                new_prefix, 
+                is_last_item, 
+                current_path, 
+                visited.copy(), 
+                local_max_depth,
+                current_depth + 1
+            )
             if subtree:  # Only include non-empty subtrees
                 lines.append(subtree)
     
     return "\n".join(lines)  # Join with newlines only at the end
 
-def print_tree_with_descriptions(d, descs, prefix="", path=None):
-    """Print a tree structure with descriptions"""
+def print_tree_with_descriptions(d, descs, prefix="", path=None, visited=None, max_depth=None, current_depth=0):
+    """Print a tree structure with descriptions, improved cycle detection, and depth limiting"""
     if path is None:
         path = []
     
-    if not d:  # Empty dictionary
+    # Initialize visited set for cycle detection
+    if visited is None:
+        visited = set()
+    
+    # Initialize max_depth if not provided
+    if max_depth is None:
+        max_depth = 4  # Even lower depth for the detailed tree
+    
+    # Depth limiting to prevent overly complex tree displays
+    if current_depth > max_depth:
+        return f"{prefix}... (max depth reached)"
+    
+    if not isinstance(d, dict) or not d:  # Check if d is a dict and not empty
         return ""
+    
+    # Create path-based node identifier for smarter cycle detection
+    current_path_str = '.'.join(str(p) for p in path) if path else "root"
+    current_node_id = (current_path_str, id(d))
+    
+    if current_node_id in visited:
+        # Only show cyclic reference if it's not an empty parameter value
+        if not path or not str(path[-1]).startswith("<"):
+            return f"{prefix}⟲ [cyclic reference]"
+        return ""
+    
+    # Mark this node as visited
+    visited.add(current_node_id)
     
     lines = []  # Store lines instead of returning a list
     
-    # Sort keys for consistent output
-    items = sorted(d.items())
+    # Sort keys for consistent output, filtering out None keys and internal keys like _options
+    items = []
+    if isinstance(d, dict):
+        items = [(k, v) for k, v in d.items() if k is not None and isinstance(k, str) and not k.startswith('_')]
+    items.sort(key=lambda x: str(x[0]))
     
-    for i, (key, value) in enumerate(items):
+    for i, (key, value) in enumerate(items): # key will be a string here
         is_last_item = i == len(items) - 1
         
-        # Skip empty keys and option entries
-        if key == "" or key == "_options":
+        # Skip empty keys
+        if key == "":
             continue
         
         # Create the branch symbol
@@ -164,27 +242,39 @@ def print_tree_with_descriptions(d, descs, prefix="", path=None):
             elif isinstance(descs[key], str):
                 desc = f" - {descs[key]}"
         
-        # Special case for interface parameters (existing code)
-        # ...
+        # Skip parameter values that would create cycles with stricter depth control
+        if str(key).startswith("<") and current_depth >= 2:
+            lines.append(f"{prefix}{branch}{key}{desc}")
+            continue
         
         # Format the current line with description
-        if isinstance(value, dict):
-            lines.append(f"{prefix}{branch}{key}{desc}")
+        lines.append(f"{prefix}{branch}{key}{desc}")
+        
+        # Limit the maximum depth for certain key patterns
+        local_max_depth = max_depth
+        if 'out-if' in str(current_path_str) or 'cvlan' in str(current_path_str) or 'svlan' in str(current_path_str):
+            local_max_depth = min(max_depth, current_depth + 1)  # Restrict depth for VLAN and interface paths
             
+        # Only recurse if this is a dictionary and if we should show children
+        if isinstance(value, dict) and value and current_depth < local_max_depth:
             # Determine which description dictionary to pass to the recursive call
             sub_descs = descs.get(key, {}) if isinstance(descs, dict) else {}
             
-            # (Rest of your special case handling for descriptions)
-            # ...
-            
-            # Recursively add subtrees
-            subtree = print_tree_with_descriptions(value, sub_descs, new_prefix, current_path)
+            # Recursively add subtrees, with increased depth and a copy of visited set
+            subtree = print_tree_with_descriptions(
+                value, 
+                sub_descs, 
+                new_prefix, 
+                current_path, 
+                visited.copy(),
+                local_max_depth,
+                current_depth + 1
+            )
             if subtree:  # Only include non-empty subtrees
                 lines.append(subtree)
-        else:
-            lines.append(f"{prefix}{branch}{key}{desc}")
     
     return "\n".join(lines)  # Join with newlines only at the end
+
 
 def handle(args, username, hostname):
     prompt = f"{username}/{hostname}@vMark-node> "
@@ -195,29 +285,73 @@ def handle(args, username, hostname):
         # Import the full tree from shell
         from cli.shell import command_tree as full_tree, description_tree as full_desc_tree
         
+        # Support for depth limiting with --depth option
+        max_depth = 5  # Default depth - low enough to avoid recursion issues but still show structure
+        depth_flag_idx = -1
+        
+        # Check for --depth flag
+        for i, arg in enumerate(args):
+            if arg == "--depth" and i + 1 < len(args) and args[i + 1].isdigit():
+                max_depth = int(args[i + 1])
+                depth_flag_idx = i
+                break
+                
+        # Filter out the --depth flag and value if present
+        if depth_flag_idx >= 0:
+            args = args[:depth_flag_idx] + args[depth_flag_idx+2:]
+
+        # Check for specific filter flags
+        no_vlan_details = "--no-vlan-details" in args
+        if no_vlan_details:
+            args = [arg for arg in args if arg != "--no-vlan-details"]
+        
         # Use the full tree instead of just the show command tree
         if len(args) == 1:
-            return print_tree(full_tree)  # Already joined with newlines
+            return print_tree(full_tree, max_depth=max_depth)
         # show tree <subtree>
         elif len(args) == 2 and args[1] in full_tree:
-            return print_tree(full_tree[args[1]])
+            # For potentially deep trees like config, twamp, keep max_depth lower
+            if args[1] in ["config", "twamp"]:
+                if max_depth > 5:  # User explicitly asked for a deeper tree
+                    return print_tree(full_tree[args[1]], max_depth=max_depth)
+                else:
+                    return print_tree(full_tree[args[1]], max_depth=3) # Lower default for problematic trees
+            else:
+                return print_tree(full_tree[args[1]], max_depth=max_depth)
         # show tree details
         elif len(args) > 1 and args[1] == "details":
             # show tree details
             if len(args) == 2:
-                return print_tree_with_descriptions(full_tree, full_desc_tree)
+                return print_tree_with_descriptions(full_tree, full_desc_tree, max_depth=3) # Lower default for details
             # show tree details <subtree>
             elif len(args) == 3 and args[2] in full_tree:
-                return print_tree_with_descriptions(
-                    full_tree[args[2]], 
-                    full_desc_tree.get(args[2], {}),
-                    path=[args[2]]  # Pass the path for better context
-                )
+                # For potentially deep trees like config, twamp, keep max_depth lower
+                if args[2] in ["config", "twamp"]:
+                    if max_depth > 5:  # User explicitly asked for a deeper tree
+                        return print_tree_with_descriptions(
+                            full_tree[args[2]], 
+                            full_desc_tree.get(args[2], {}),
+                            path=[args[2]],
+                            max_depth=max_depth
+                        )
+                    else:
+                        return print_tree_with_descriptions(
+                            full_tree[args[2]], 
+                            full_desc_tree.get(args[2], {}),
+                            path=[args[2]],
+                            max_depth=2
+                        )
+                else:
+                    return print_tree_with_descriptions(
+                        full_tree[args[2]], 
+                        full_desc_tree.get(args[2], {}),
+                        path=[args[2]],
+                        max_depth=max_depth
+                    )
             else:
                 return f"{prompt}Unknown subcommand for 'tree details': {' '.join(args[2:])}"
         else:
             return f"{prompt}Unknown subcommand for 'tree': {' '.join(args[1:])}"
-    # Rest of the handle function
 
     if args[0] == "interfaces":
         if len(args) == 1:

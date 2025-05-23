@@ -1,5 +1,11 @@
 # Release Notes
 
+Version 0.3.9: Remote TWAMP Benchmark.
+---------------------------------
+
+- New plugin: **XDP-Switch** (eBPF) based MEF-compliant transparent Ethernet switching.
+- Bug fixes in the command/description tree structure and logic.
+
 Version 0.3.8: Remote TWAMP Benchmark.
 ---------------------------------
 

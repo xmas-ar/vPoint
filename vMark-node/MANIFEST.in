@@ -5,3 +5,4 @@ include README.md
 include main.py
 recursive-include plugins *
 recursive-include docs *
+include plugins/xdp-mef-switch/xdp_forwarding.o

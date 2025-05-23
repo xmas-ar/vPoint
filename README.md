@@ -1,9 +1,7 @@
-<p align="center">
-  <img src="https://github.com/user-attachments/assets/766164e9-3a5a-46a2-9183-dcfef9bc0aa9" alt="xxx" style="width: 500px; height: auto;">
-</p>
+<h1 align="center">vMark-node by Pathgate</h1>
 <h2 align="center">World's first open source Ethernet software-based demarcation NID.</h2>
 
-<p align="center">Latest version: 0.3.8 / Release notes: <a href="https://github.com/xmas-ar/vMark-node/blob/public/docs/base/release_notes.md">Link</a> / News at: <a href="https://www.linkedin.com/company/pathgate">LinkedIn</a> </p></p>
+<p align="center">Latest version: 0.3.9 / Release notes: <a href="https://github.com/xmas-ar/vMark-node/blob/public/docs/base/release_notes.md">Link</a> / News at: <a href="https://www.linkedin.com/company/pathgate">LinkedIn</a> </p></p>
 
 **🚀 Features:**
 - Modular tree-style CLI with tab autocompletions and '?' helper.
@@ -14,11 +12,12 @@
 - **TWAMP** (RFC5357) implementation for End-to-End L3 tests. (**ipv4 & ipv6, sender/responder modes**). (v0.3)
 - Pypi (pip) packaging. (v0.3.1)
 - Remote Management via vMark. (v0.3.4)
+- **XDP-Switch** (eBPF) based MEF-compliant <a href="https://github.com/xmas-ar/vMark-node/blob/plugins/xdp_mef_switch/README.md">transparent Ethernet switching</a> (v0.3.9)
+
 
 **🔧 Feature roadmap:**
  - Ethernet OAM. (IEEE 802.1ag / Y.1731)
  - Timing protocols support (ITU-T G.8262 Sync-E and IEEE 1588v2)
- - MEF3 Services deployment with 100% L2 transparency (l2tp).
  - Automated MEF3 Service WAN failover.
  - Remote loop testing with automatic timeout.
  - RFC2544 Service Activation testing and reflector.
@@ -61,6 +60,24 @@ ___
 
 <h1 align="center">📎 Installation methods</h1>
 
+## System Requirements
+
+- Python 3.9+
+- bpftool
+- pkg-config
+- libnl-3-dev and libnl-route-3-dev (Debian/Ubuntu)
+- libnl3-devel (Fedora/RHEL/CentOS)
+
+- Ubuntu/Debian:
+```
+sudo apt update
+sudo apt install -y python3.9 python3.9-venv python3-pip build-essential pkg-config libnl-3-dev libnl-route-3-dev python3-dev ethtool
+```
+
+- Fedora/RHEL/CentOS:
+```
+sudo dnf install -y python3.9 python3-pip gcc pkgconfig libnl3-devel python3-devel ethtool
+```
 
 ## Quick Install
 

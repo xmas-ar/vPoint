@@ -134,7 +134,7 @@ def create_handler(reg_state):
 
                     client_address = self.client_address[0]
                     client_port = self.client_address[1]
-                    print(f"[Registration] Received request from {client_address}:{client_port}")
+                    #print(f"[Registration] Received request from {client_address}:{client_port}")
 
                     config_manager = RegisterConfig() # Use instance
                     config = config_manager.get_config()
@@ -207,8 +207,8 @@ class APIHandler(BaseHTTPRequestHandler):
 
             post_data = self.rfile.read(content_length)
             data = json.loads(post_data.decode('utf-8'))
-            api_logger.info(f"Received POST request on {self.path} from {self.client_address[0]}")
-            api_logger.debug(f"Request data: {data}") # Log data only in debug
+            #api_logger.info(f"Received POST request on {self.path} from {self.client_address[0]}")
+            #api_logger.debug(f"Request data: {data}") # Log data only in debug
 
             # --- Authentication ---
             received_vmark_id = data.get("vmark_id")
@@ -216,19 +216,19 @@ class APIHandler(BaseHTTPRequestHandler):
                 api_logger.warning(f"Received request with invalid vMark ID: '{received_vmark_id}' (expected: '{self.vmark_id}') from {self.client_address[0]}")
                 self.send_error(403, "Invalid vMark ID") # Forbidden
                 return
-            api_logger.debug(f"vMark ID validated successfully for request to {self.path}.")
+            #api_logger.debug(f"vMark ID validated successfully for request to {self.path}.")
             # --- End Authentication ---
 
             # --- API Routing ---
             if self.path == "/api/status":
                 response_data = { "status": "online", "timestamp": time.time() }
                 status_code = 200
-                api_logger.debug("Responding to /api/status")
+                #api_logger.debug("Responding to /api/status")
 
             elif self.path == "/api/heartbeat":
                  response_data = { "status": "online", "timestamp": time.time() }
                  status_code = 200
-                 api_logger.debug("Responding to /api/heartbeat")
+                 #api_logger.debug("Responding to /api/heartbeat")
 
             elif self.path == "/api/execute":
                 command_str = data.get("command")
@@ -276,7 +276,7 @@ class APIHandler(BaseHTTPRequestHandler):
             self.send_header('Content-type', 'application/json')
             self.end_headers()
             self.wfile.write(json.dumps(response_data).encode('utf-8'))
-            api_logger.debug(f"Sent {status_code} response for {self.path}")
+            #api_logger.debug(f"Sent {status_code} response for {self.path}")
 
         except json.JSONDecodeError:
             api_logger.error(f"Invalid JSON received from {self.client_address[0]} for path {self.path}")
@@ -295,7 +295,7 @@ class APIHandler(BaseHTTPRequestHandler):
 
     def log_message(self, format, *args):
         """Override default logging to use our api_logger."""
-        api_logger.info("%s - %s" % (self.address_string(), format % args))
+        #api_logger.info("%s - %s" % (self.address_string(), format % args))
 
     def log_error(self, format, *args):
         """Override default error logging to use api_logger."""
@@ -378,7 +378,6 @@ def initialize_api_on_startup():
     config_instance = RegisterConfig()
 
     if config_instance.is_registered():
-        print("[Startup] Node is registered with vMark, attempting to start API server...")
         api_logger.info("Node is registered, attempting API server startup.")
 
         config = config_instance.get_config()
@@ -413,7 +412,6 @@ def initialize_api_on_startup():
         else:
             print("[Startup] Failed to start API server (check ~/.vmark/api.log)")
     else:
-        print("[Startup] Node is not registered with vMark, skipping API server startup")
         api_logger.info("Node not registered, skipping API server startup.")
 
 
@@ -457,17 +455,30 @@ descriptions = {
 
 def get_command_tree():
     """Return the command tree structure for register commands."""
-    # Return only the subcommands, not the top-level 'register' key itself
-    return {
+    tree = {
         "vmark": {
             "link-api": {
-                "listen-ip": None,  # Expects <ip-address>
-                "port": None,       # Expects <port>
-                "pin": None         # Flag option
+                "listen-ip": {
+                    "<ip-address>": {}  # Change from None to {} for proper nesting
+                },
+                "port": {
+                    "<port>": {}  # Change from None to {} for proper nesting
+                },
+                "pin": {}  # Change from None to {} for proper nesting
             }
-            # Add unlink-api, status etc. here later if needed
         }
     }
+    
+    # Create proper sibling relationships
+    siblings = ["listen-ip", "port", "pin"]
+    for param in siblings:
+        if param in tree["vmark"]["link-api"]:
+            for option in tree["vmark"]["link-api"][param]:
+                for sibling in siblings:
+                    if sibling != param:
+                        tree["vmark"]["link-api"][param][option][sibling] = tree["vmark"]["link-api"][sibling]
+    
+    return tree
 
 def get_descriptions():
     """Return the description tree for register commands"""
