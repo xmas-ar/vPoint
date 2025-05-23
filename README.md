@@ -2,7 +2,7 @@
   <img src="https://github.com/user-attachments/assets/766164e9-3a5a-46a2-9183-dcfef9bc0aa9" alt="xxx" style="width: 500px; height: auto;">
 </p>
 
-<p align="center">Latest version: 0.3.9 / Release notes: <a href="https://github.com/xmas-ar/vMark-node/blob/public/docs/base/release_notes.md">Link</a> / News at: <a href="https://www.linkedin.com/company/pathgate">LinkedIn</a> </p></p>
+<p align="center">Latest version: 0.3.9 / Release notes: <a href="https://github.com/xmas-ar/vMark-node/plugins/xdp_mef_switch/README.md">Link</a> / News at: <a href="https://www.linkedin.com/company/pathgate">LinkedIn</a> </p></p>
 
 **🚀 Features:**
 - Modular tree-style CLI with tab autocompletions and '?' helper.
@@ -10,10 +10,10 @@
 - Complete **Interface management**.
 - GPLv3 License.
 - Add & delete sub.interfaces (**QinQ** / dual-tags supported) (v0.2)
-- **TWAMP** (RFC5357) implementation for End-to-End L3 tests. (**ipv4 & ipv6, sender/responder modes**). (v0.3)
+- **TWAMP** (RFC5357) <a href="https://github.com/xmas-ar/vMark-node/blob/public/vMark-node/plugins/twamp/readme.md">implementation for End-to-End L3 tests.</a> (**ipv4 & ipv6, sender/responder modes**). (v0.3)
 - Pypi (pip) packaging. (v0.3.1)
 - Remote Management via vMark. (v0.3.4)
-- **XDP-Switch** (eBPF) based MEF-compliant <a href="https://github.com/xmas-ar/vMark-node/blob/plugins/xdp_mef_switch/README.md">transparent Ethernet switching</a> (v0.3.9)
+- **XDP-Switch** (eBPF) based MEF-compliant <a href="https://github.com/xmas-ar/vMark-node/blob/public/vMark-node/plugins/xdp_mef_switch/README.md">transparent Ethernet switching</a> (v0.3.9)
 
 <details>
 
