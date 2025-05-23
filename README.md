@@ -2,7 +2,7 @@
   <img src="https://github.com/user-attachments/assets/766164e9-3a5a-46a2-9183-dcfef9bc0aa9" alt="xxx" style="width: 500px; height: auto;">
 </p>
 
-<p align="center">Latest version: 0.3.9 / Release notes: <a href="https://github.com/xmas-ar/vMark-node/plugins/xdp_mef_switch/README.md">Link</a> / News at: <a href="https://www.linkedin.com/company/pathgate">LinkedIn</a> </p></p>
+<p align="center">Latest version: 0.3.9 / Release notes: <a href="https://github.com/xmas-ar/vMark-node/blob/public/docs/base/release_notes.md">Link</a> / News at: <a href="https://www.linkedin.com/company/pathgate">LinkedIn</a> </p></p>
 
 **🚀 Features:**
 - Modular tree-style CLI with tab autocompletions and '?' helper.
