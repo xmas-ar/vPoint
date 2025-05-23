@@ -1,5 +1,6 @@
-<h1 align="center">vMark-node by Pathgate</h1>
-<h2 align="center">World's first open source Ethernet software-based demarcation NID.</h2>
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/766164e9-3a5a-46a2-9183-dcfef9bc0aa9" alt="xxx" style="width: 500px; height: auto;">
+</p>
 
 <p align="center">Latest version: 0.3.9 / Release notes: <a href="https://github.com/xmas-ar/vMark-node/blob/public/docs/base/release_notes.md">Link</a> / News at: <a href="https://www.linkedin.com/company/pathgate">LinkedIn</a> </p></p>
 
@@ -14,8 +15,13 @@
 - Remote Management via vMark. (v0.3.4)
 - **XDP-Switch** (eBPF) based MEF-compliant <a href="https://github.com/xmas-ar/vMark-node/blob/plugins/xdp_mef_switch/README.md">transparent Ethernet switching</a> (v0.3.9)
 
+<details>
 
-**🔧 Feature roadmap:**
+  <summary>Feature roadmap</summary>
+  
+  
+  ```
+
  - Ethernet OAM. (IEEE 802.1ag / Y.1731)
  - Timing protocols support (ITU-T G.8262 Sync-E and IEEE 1588v2)
  - Automated MEF3 Service WAN failover.
@@ -26,20 +32,20 @@
  - SNMP Support.
  - Multi-vendor IPSec Tunnel support.
  - VXLAN Tunneling.
+ 
+  ```
+  
+</details>
 
-<img src="https://github.com/user-attachments/assets/f03e03f7-961f-4c25-8ed4-d95991735c05" alt="xxx">
+
+
+<img src="https://github.com/user-attachments/assets/f36aa664-fa70-42d6-8c21-d2c663adaea3" alt="xxx">
 <h2 align="center"></h2>
 <h1 align="center"># Overview</h1>
 
 <p align="center">vMark-node is a software-based open-source Ethernet demarcation NID designed for flexibility and democratization in the Carrier industry.</p>
 
 <p align="center">The "-node"** refers to this being the client-side of <a href="https://github.com/xmas-ar/vMark">vMark</a> server. (vMark-node doenst need vMark to work). </p>
-
-
-
-<p align="center">
-  <img src="https://github.com/user-attachments/assets/86b990c2-bbf9-472b-b2ef-cd1b0842d8c97" alt="xxx">
-</p>
 
 <h1 align="center"># Architecture</h1>
 
