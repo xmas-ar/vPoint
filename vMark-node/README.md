@@ -32,6 +32,7 @@
  - SNMP Support.
  - Multi-vendor IPSec Tunnel support.
  - VXLAN Tunneling.
+ - DPDK / VPP
  
   ```
   
